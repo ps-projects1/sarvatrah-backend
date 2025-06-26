@@ -1,0 +1,34 @@
+{
+  "name": "sarvatrah_backend",
+  "version": "1.0.0",
+  "description": "Backend of sarvatrah ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js",
+    "start": "nodemon server.js"
+  },
+  "author": "Akshayss400@gmail.com (Akshaydeep Singh)",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.11",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.30.1",
+    "moment-timezone": "^0.5.45",
+    "mongoose": "^7.4.4",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "nodemon": "^3.1.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "morgan": "^1.10.0",
+    "nodemo": "^1.0.0"
+  }
+}
