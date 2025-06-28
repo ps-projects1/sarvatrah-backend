@@ -16,7 +16,7 @@ const addHotel = async (req, res) => {
       phoneNumber,
       email,
       contactPerson,
-      description,
+      descriptions,
       active,
       rooms: encryptedRooms,
     } = req.body;
@@ -41,7 +41,7 @@ const addHotel = async (req, res) => {
       phoneNumber,
       email,
       contactPerson,
-      description,
+      descriptions,
       imgs,
       rooms,
       active,

@@ -48,24 +48,41 @@ const categorySchema = dbs.Schema({
   name: String,
 });
 
-const hotelSchema = dbs.Schema({
-  objectType: { type: String, default: "hotel" },
-  hotelType: { type: String, required: true },
-  hotelName: String,
-  rooms: [roomSchema],
-  address: String,
-  state: String,
-  city: String,
-  pincode: String,
-  phoneNumber: String,
-  email: String,
-  contactPerson: String,
-  descriptions: String,
-  contractDate: { start: String, end: String },
-  blackout: { start: String, end: String },
-  imgs: [{ filename: String, path: String, mimetype: String }],
-  active: { type: Boolean, default: false },
-});
+const hotelSchema = dbs.Schema(
+  {
+    objectType: { type: String, default: "hotel" },
+    hotelType: { type: String, required: true },
+    hotelName: { type: String, required: true },
+    rooms: [roomSchema],
+    address: { type: String },
+    state: { type: String },
+    city: { type: String },
+    pincode: { type: String },
+    phoneNumber: { type: String },
+    email: { type: String },
+    contactPerson: { type: String },
+    descriptions: { type: String },
+    contractDate: {
+      start: { type: String },
+      end: { type: String },
+    },
+    blackout: {
+      start: { type: String },
+      end: { type: String },
+    },
+    imgs: [
+      {
+        filename: { type: String },
+        path: { type: String },
+        mimetype: { type: String },
+      },
+    ],
+    active: { type: Boolean, default: false },
+  },
+  {
+    timestamps: true,
+  }
+);
 
 const vehicleCollection = dbs.model("vehicles", vehicleSchema);
 const hotelCollection = dbs.model("hotels", hotelSchema);
