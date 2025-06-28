@@ -19,7 +19,7 @@ const updateHotel = async (req, res) => {
       email,
       contactPerson,
       descriptions,
-      rooms: encryptedRooms,
+      encryptedRooms,
       active,
     } = req.body;
 

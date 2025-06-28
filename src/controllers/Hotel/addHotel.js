@@ -18,7 +18,7 @@ const addHotel = async (req, res) => {
       contactPerson,
       descriptions,
       active,
-      rooms: encryptedRooms,
+      encryptedRooms,
     } = req.body;
 
     const rooms = JSON.parse(encryptedRooms);
