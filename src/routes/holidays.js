@@ -1,7 +1,6 @@
 const express = require("express");
 const packageCollection = require("../models/holidaysPackage");
 const upload = require("../utils/file_upload/upload");
-const mongoose = require("mongoose");
 const route = express.Router();
 const app = express();
 const moment = require("moment");
@@ -10,20 +9,14 @@ const {
 } = require("../controllers/updatepackage.controller");
 
 app.use("/data", express.static("public/data"));
-const jwt = require("jsonwebtoken");
-const { vehicleCollection, hotelCollection } = require("../models/inventries");
-const { parse } = require("dotenv");
+const { hotelCollection } = require("../models/hotel");
+const { vehicleCollection } = require("../models/vehicle");
 
 route.get("/", async (req, res, next) => {
   res.status(200).json({
     message: "holiday package homepage",
   });
 });
-
-// route.get("/package-list", async (req, res, next) => {
-//   const packageList = await packageCollection.find({ active: true });
-//   res.status(200).json(packageList);
-// });
 
 route.post("/package-list", async (req, res, next) => {
   let lowestVehiclePriceAllData = [];
@@ -252,164 +245,6 @@ route.get("/package/gallery/:id", async (req, res, next) => {
   console.log(packageInfo.imgs);
   res.status(200).json({ message: "working" });
 });
-
-// route.post("/package/details/:id", async (req, res, next) => {
-//   const date = new Date();
-//   const currentDate =
-//     date.getDate() + "-" + (date.getMonth() + 1) + "-" + date.getFullYear();
-//   const packageID = req.params.id;
-//   const body_data = {
-//     travelStartDate: req?.body?.date ? req?.body?.date : currentDate,
-//     adult: req?.body?.adult ? req?.body?.adult : 2,
-//     childWithBedPrice: req?.body?.childWithBed ? req?.body?.childWithBed : 0,
-//     childWithoutBedPrice: req?.body?.childWithoutBed
-//       ? req?.body?.childWithoutBed
-//       : 0,
-//     vehicleId: req?.body?.vehicleId,
-//     hotelId: req?.body?.hotelId,
-//   };
-
-//   let hotelTotalPrice = 0;
-//   let availableVehicles = [];
-//   let availableHotels = [];
-
-//   const carList = [];
-//   if (!req.cookies.room_guest) {
-//     let guestLists = { adult: 2, cb: 0, cwb: 0 };
-//   }
-
-//   const packageInfo = await packageCollection.findById(packageID);
-//   let modifiedItinerary = JSON.parse(JSON.stringify(packageInfo.itinerary));
-
-//   // All vehicle price
-//   // availableVehicles = packageInfo?.availableVehicle?.map((item, index) => {
-//   //   return { price: item?.price };
-//   // });
-
-//   let destinationCity = null;
-//   try {
-//     destinationCity = Array.isArray(packageInfo?.destinationCity)
-//       ? JSON.parse(packageInfo.destinationCity[0])[0]
-//       : null;
-//   } catch (error) {
-//     console.error("Error parsing destinationCity:", error);
-//   }
-//   // const hotelList = await hotelCollection.find({ city: destinationCity });
-//   // availableHotels = hotelList.map((hotelData) => ({
-//   //   id: hotelData._id.toString(),
-//   //   objectType: hotelData.objectType,
-//   //   hotelType: hotelData.hotelType,
-//   //   hotelName: hotelData.hotelName,
-//   //   address: hotelData.address,
-//   //   rooms: hotelData.rooms,
-//   //   occupancyRates: hotelData.occupancyRates,
-//   //   city: hotelData.city,
-//   //   state: hotelData.state,
-//   //   pincode: hotelData.pincode,
-//   //   phoneNumber: hotelData.phoneNumber,
-//   //   email: hotelData.email,
-//   //   contactPerson: hotelData.contactPerson,
-//   //   imgs: hotelData.imgs, // Include _id and convert to string if needed
-//   // }));
-
-//   for (let a of modifiedItinerary) {
-//     for (let b of a.dayItinerary) {
-//       if (b.type === "Vehicle") {
-//         const objectId = new mongoose.Types.ObjectId(b.iti_id);
-//         let data = await vehicleCollection.findById(objectId);
-//         if (data) {
-//           // Directly update the `b` object inside `dayItinerary`
-//           b.vehicleType = data.vehicleType || null;
-//           b.brandName = data.brandName || null;
-//           b.seatLimit = data.seatLimit || null;
-//         }
-//       }
-//     }
-//   }
-
-//   for (let itineraryData of packageInfo?.itinerary) {
-//     for (let dayItineraryData of itineraryData?.dayItinerary) {
-//       if (dayItineraryData?.type === "Hotel") {
-//         let hotelData = await hotelCollection.findById(
-//           dayItineraryData?.iti_id
-//         );
-//         let hotelList = await hotelCollection.find({ city: hotelData?.city });
-//         availableHotels.push(hotelList);
-//         for (let roomData of hotelData?.rooms) {
-//           if (roomData.roomType === "Standard") {
-//             const [day, month, year] = body_data?.travelStartDate
-//               ?.split("-")
-//               .map(Number);
-//             const startDate = new Date(roomData.duration[0]?.startDate);
-//             const endDate = new Date(roomData.duration[0]?.endDate);
-//             const dateToCheck = new Date(year, month - 1, day);
-//             if (dateToCheck >= startDate && dateToCheck <= endDate) {
-//               if (body_data?.adult) {
-//                 hotelTotalPrice +=
-//                   roomData.occupancyRates[body_data?.adult - 1];
-//               }
-//               if (body_data?.childWithBedPrice) {
-//                 hotelTotalPrice += roomData?.child?.childWithBedPrice;
-//               }
-//               if (body_data?.childWithoutBedPrice) {
-//                 hotelTotalPrice += roomData?.child?.childWithoutBedPrice;
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }
-//   }
-
-//   let lowestVehiclePrice = null;
-
-//   availableVehicles = packageInfo?.availableVehicle?.sort(
-//     (a, b) => a?.rate - b?.rate
-//   );
-//   if (!body_data?.vehicleId) {
-//     // lowest vehicle price use for totalTransferRate
-//     lowestVehiclePrice = packageInfo?.availableVehicle?.reduce(
-//       (rate, vehicle) => (vehicle?.rate < rate ? vehicle?.rate : rate),
-//       packageInfo?.availableVehicle[0]?.rate
-//     );
-
-//     // add vehicle lowest price
-//     hotelTotalPrice += lowestVehiclePrice ? lowestVehiclePrice : 0;
-//   } else {
-//     const selectedVehicle = packageInfo?.availableVehicle.find(
-//       (vehicle) => vehicle?._id == body_data?.vehicleId
-//     );
-//     hotelTotalPrice += selectedVehicle?.rate ? selectedVehicle?.rate : 0;
-//   }
-//   hotelTotalPrice =
-//     hotelTotalPrice + (hotelTotalPrice * packageInfo?.priceMarkup) / 100;
-
-//   const response = {
-//     packageDuration: packageInfo.packageDuration,
-//     _id: packageInfo._id,
-//     packageName: packageInfo.packageName,
-//     images: packageInfo?.images,
-//     roomLimit: packageInfo.roomLimit,
-//     include: packageInfo.include,
-//     itinerary: modifiedItinerary,
-//     exclude: packageInfo.exclude,
-//     price: packageInfo.price,
-//     destinationCity: packageInfo.destinationCity,
-//     noOfActivities: packageInfo.noOfActivities,
-//     noOfHotels: packageInfo.noOfHotels,
-//     noOfTransfers: packageInfo.noOfTransfers,
-//     totalHotelRate: packageInfo.totalHotelRate,
-//     totalTransferRate: lowestVehiclePrice ? lowestVehiclePrice : 0,
-//     hotelTotalPrice: hotelTotalPrice,
-//     inflatedPrice: packageInfo?.inflatedPercentage,
-//     lowestVehiclePrice: lowestVehiclePrice,
-//     priceMarkup: packageInfo?.priceMarkup ? packageInfo?.priceMarkup : 1,
-//     vehicleListOptions: availableVehicles,
-//     availableHotels: availableHotels || [],
-//   };
-
-//   res.status(200).json(response);
-// });
 
 route.post("/package/details/:id", async (req, res, next) => {
   try {
@@ -876,7 +711,6 @@ route.post("/package/itinerary", async (req, res, next) => {
   const title = req.body.title;
   const itineraryInfo = req.cookies.itineraryData;
 
-  // const decryptActivityInfo = jwt.verify(itineraryInfo,process.env.SECRET_KEY)
   const decryptActivityInfo = JSON.parse(itineraryInfo);
   const addItinerary = {
     dayCount: dayCount,

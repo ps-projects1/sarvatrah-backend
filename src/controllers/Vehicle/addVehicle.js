@@ -1,21 +1,21 @@
-const { vehicleCollection } = require("../../models/inventries");
+const { vehicleCollection } = require("../../models/vehicle");
 
 const addVehicle = async (req, res) => {
-  const vehicleData = req.body;
-
-  // Basic validation - check if required fields are present
-  if (
-    !vehicleData.vehicleType ||
-    !vehicleData.brandName ||
-    !vehicleData.modelName
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Vehicle type, brand name, and model name are required",
-    });
-  }
-
   try {
+    const vehicleData = req.body;
+
+    // Basic validation - check if required fields are present
+    if (
+      !vehicleData.vehicleType ||
+      !vehicleData.brandName ||
+      !vehicleData.modelName
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle type, brand name, and model name are required",
+      });
+    }
+
     // Set default values
     const newVehicle = {
       objectType: "car", // Default value from schema

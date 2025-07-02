@@ -1,4 +1,4 @@
-const { hotelCollection } = require("../../models/inventries");
+const { hotelCollection } = require("../../models/hotel");
 const {
   generateErrorResponse,
   generateResponse,

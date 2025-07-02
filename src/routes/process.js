@@ -1,5 +1,6 @@
 const express = require("express");
-const { vehicleCollection, hotelCollection } = require("../models/inventries");
+const { hotelCollection } = require("../models/hotel");
+const { vehicleCollection } = require("../models/vehicle");
 
 const route = express.Router();
 

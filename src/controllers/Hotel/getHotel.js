@@ -2,7 +2,7 @@ const {
   generateResponse,
   generateErrorResponse,
 } = require("../../helper/response");
-const { hotelCollection } = require("../../models/inventries");
+const { hotelCollection } = require("../../models/hotel");
 
 const getHotel = async (req, res) => {
   try {

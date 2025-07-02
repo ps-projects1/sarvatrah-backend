@@ -1,4 +1,4 @@
-const { vehicleCollection } = require("../../models/inventries");
+const { vehicleCollection } = require("../../models/vehicle");
 
 const deleteVehicle = async (req, res) => {
   const { id } = req.params;

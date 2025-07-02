@@ -1,6 +1,7 @@
 const Booking = require("../../models/Booking");
 const holidayPackageModel = require("../../models/holidaysPackage");
-const { vehicleCollection, hotelCollection } = require("../../models/inventries");
+const { hotelCollection } = require("../../models/hotel");
+const { vehicleCollection } = require("../../models/vehicle");
 const User = require("../../models/user");
 
 const createBooking = async (req, res) => {
@@ -28,7 +29,9 @@ const createBooking = async (req, res) => {
       !hotelId ||
       !packageId
     ) {
-      return res.status(400).json({ message: "Please provide all required fields" });
+      return res
+        .status(400)
+        .json({ message: "Please provide all required fields" });
     }
 
     const status = "Pending";
@@ -36,11 +39,13 @@ const createBooking = async (req, res) => {
     // Check if user exists
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
-    if (user.userRole !== 0) return res.status(400).json({ message: "Only user can book" });
+    if (user.userRole !== 0)
+      return res.status(400).json({ message: "Only user can book" });
 
     // Check if package exists
     const package = await holidayPackageModel.findById(packageId);
-    if (!package) return res.status(404).json({ message: "Holiday package not found" });
+    if (!package)
+      return res.status(404).json({ message: "Holiday package not found" });
 
     // Check if vehicle exists
     const vehicle = await vehicleCollection.findById(vehicleId);
@@ -66,9 +71,13 @@ const createBooking = async (req, res) => {
 
     await newBooking.save();
 
-    res.status(201).json({ message: "Booking created successfully", booking: newBooking });
+    res
+      .status(201)
+      .json({ message: "Booking created successfully", booking: newBooking });
   } catch (error) {
-    res.status(500).json({ message: "Error creating booking", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error creating booking", error: error.message });
   }
 };
 

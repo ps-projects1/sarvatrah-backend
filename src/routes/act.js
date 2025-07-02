@@ -2,7 +2,8 @@ const express = require("express");
 const route = express.Router();
 const upload = require("../utils/file_upload/upload");
 const activityModel = require("../models/activities");
-const { vehicleCollection, hotelCollection } = require("../models/inventries");
+const { hotelCollection } = require("../models/hotel");
+const { vehicleCollection } = require("../models/vehicle");
 
 route.get("/", async (req, res, next) => {
   const id = req.query.id;
