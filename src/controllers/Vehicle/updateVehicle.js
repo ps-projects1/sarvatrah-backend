@@ -1,19 +1,22 @@
-const { vehicleCollection } = require("../../models/inventries");
+const {
+  generateErrorResponse,
+  generateResponse,
+} = require("../../helper/response");
+const { vehicleCollection } = require("../../models/vehicle");
+const { sendEmail } = require("../../helper/sendMail");
 
 const updateVehicle = async (req, res) => {
-  const { id } = req.params;
-  const updateData = req.body;
-
-  // Validate the ID
-  if (!id) {
-    return res.status(400).json({
-      success: false,
-      message: "Vehicle ID is required",
-    });
-  }
-
   try {
-    // Prepare the update object with only allowed fields
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Validate the ID
+    if (!id) {
+      return res
+        .status(400)
+        .json(generateErrorResponse("Vehicle ID is required"));
+    }
+
     const allowedFields = [
       "vehicleType",
       "brandName",
@@ -40,11 +43,21 @@ const updateVehicle = async (req, res) => {
 
     // Check if there are actually fields to update
     if (Object.keys(updateObject).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No valid fields provided for update",
-      });
+      return res
+        .status(400)
+        .json(generateErrorResponse("No valid fields to update"));
     }
+
+    // Get the previous vehicle data to check for active status change
+    const prevVehicle = await vehicleCollection.findById(id);
+    if (!prevVehicle) {
+      return res.status(404).json(generateErrorResponse("Vehicle not found"));
+    }
+
+    // Detect status change
+    const activeChanged =
+      typeof updateObject.active === "boolean" &&
+      updateObject.active !== prevVehicle.active;
 
     // Add updatedAt timestamp
     updateObject.updatedAt = new Date();
@@ -56,43 +69,65 @@ const updateVehicle = async (req, res) => {
     );
 
     if (!updatedVehicle) {
-      return res.status(404).json({
-        success: false,
-        message: "Vehicle not found",
-      });
+      return res.status(404).json(generateErrorResponse("Vehicle not found"));
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Vehicle updated successfully",
-      data: updatedVehicle,
-    });
+    // Send email if status changed
+    if (activeChanged) {
+      const sender = req.user?.email || "Unknown User"; // assuming auth middleware sets req.user
+      const action = updateObject.active ? "Activated" : "Deactivated";
+
+      const html = `
+        <p>Dear Admin,</p>
+        <p>The vehicle <strong>${updatedVehicle.brandName} ${
+        updatedVehicle.modelName
+      }</strong> (ID: ${id}) has been <strong>${action}</strong>.</p>
+        <h4>Updated By:</h4>
+        <ul>
+          <li><strong>Email:</strong> ${sender}</li>
+        </ul>
+        <h4>Vehicle Details:</h4>
+        <ul>
+          <li><strong>Type:</strong> ${updatedVehicle.vehicleType}</li>
+          <li><strong>Brand:</strong> ${updatedVehicle.brandName}</li>
+          <li><strong>Model:</strong> ${updatedVehicle.modelName}</li>
+          <li><strong>Seat Limit:</strong> ${updatedVehicle.seatLimit}</li>
+          <li><strong>Rate:</strong> ${updatedVehicle.rate}</li>
+          <li><strong>Status:</strong> ${
+            updateObject.active ? "Active" : "Inactive"
+          }</li>
+        </ul>
+        <p><em>Timestamp: ${new Date().toLocaleString()}</em></p>
+      `;
+
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL || "sourabh@sarvatrah.com",
+        subject: `Vehicle ${action}: ${updatedVehicle.brandName} ${updatedVehicle.modelName}`,
+        text: `Vehicle ${updatedVehicle.brandName} ${updatedVehicle.modelName} has been ${action} by ${sender}.`,
+        html,
+      })
+        .then((data) => {
+          if (!data.success) {
+            console.error("Failed to send email:", data.message);
+          } else {
+            console.log("Email sent successfully:", data.messageId);
+          }
+        })
+        .catch((error) => {
+          console.error("Error sending email:", error);
+        });
+    }
+
+    res
+      .status(200)
+      .json(
+        generateResponse(true, "Vehicle updated successfully", updatedVehicle)
+      );
   } catch (error) {
-    console.error("Error updating vehicle:", error);
-
-    // Handle validation errors
-    if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: errors,
-      });
-    }
-
-    // Handle cast error (invalid ID format)
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid vehicle ID format",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
+    console.log("Update Vehicle API : ", error);
+    return res
+      .status(500)
+      .json(generateErrorResponse("Internal server error", error.message));
   }
 };
 
