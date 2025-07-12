@@ -5,9 +5,9 @@ const { updateHolidayPackage } = require("./updateHolidayPackage");
 const { holidayPackageDetails } = require("./holidayPackageDetails");
 
 module.exports = {
+  getHolidayPackage,
   addHolidayPackage,
   deleteHolidayPackage,
-  getHolidayPackage,
   updateHolidayPackage,
   holidayPackageDetails,
 };

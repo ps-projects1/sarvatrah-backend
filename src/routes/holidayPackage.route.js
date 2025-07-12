@@ -1,0 +1,19 @@
+const route = require("express").Router();
+const upload = require("../config/uploadConfig");
+const {
+  getHolidayPackage,
+  addHolidayPackage,
+} = require("../controllers/HolidayPackage/holidayPackage.controller");
+
+// Route
+route.get("/get-holiday-package", getHolidayPackage);
+route.post(
+  "/add-holiday-package",
+  upload.fields([
+    { name: "themeImg", maxCount: 1 },
+    { name: "packageImages", maxCount: 10 },
+  ]),
+  addHolidayPackage
+);
+
+module.exports = route;

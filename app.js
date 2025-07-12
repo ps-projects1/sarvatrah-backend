@@ -22,6 +22,9 @@ const user = require("./src/routes/user");
 const booking = require("./src/routes/booking");
 const hotelRoutes = require("./src/routes/hotel.route");
 const vehicleRoutes = require("./src/routes/vehicle.route");
+const stateRoutes = require("./src/routes/state.route");
+const cityRoutes = require("./src/routes/city.route");
+const holidayRoutes = require("./src/routes/holidayPackage.route");
 
 dotenv.config();
 const app = express();
@@ -69,6 +72,9 @@ app.use("/api/v1", user);
 app.use("/booking", booking);
 app.use("/hotel", hotelRoutes);
 app.use("/vehicle", vehicleRoutes);
+app.use("/state", stateRoutes);
+app.use("/city", cityRoutes);
+app.use("/holiday", holidayRoutes);
 
 // Test route
 app.post("/submit", (req, res) => {
