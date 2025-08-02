@@ -4,6 +4,7 @@ const {
   getHolidayPackage,
   addHolidayPackage,
   holidayPackageDetails,
+  userHolidayPackageList
 } = require("../controllers/HolidayPackage/holidayPackage.controller");
 
 // Route
@@ -17,5 +18,8 @@ route.post(
   ]),
   addHolidayPackage
 );
+
+// User Holiday Package List
+route.get("/user-holiday-package-list", userHolidayPackageList);
 
 module.exports = route;

@@ -3,6 +3,7 @@ const { deleteHolidayPackage } = require("./deleteHolidayPackage");
 const { getHolidayPackage } = require("./getHolidayPackage");
 const { updateHolidayPackage } = require("./updateHolidayPackage");
 const { holidayPackageDetails } = require("./holidayPackageDetails");
+const { userHolidayPackageList } = require("./userHolidayPackageList");
 
 module.exports = {
   getHolidayPackage,
@@ -10,4 +11,5 @@ module.exports = {
   deleteHolidayPackage,
   updateHolidayPackage,
   holidayPackageDetails,
+  userHolidayPackageList,
 };
