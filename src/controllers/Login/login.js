@@ -4,11 +4,9 @@ const User = require("../../models/user");
 require("dotenv").config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// --------------------- Login ---------------------
 const login = async (req, res) => {
   const { email, password } = req.body;
-  // password
-  // test@123
+
   try {
     const user = await User.findOne({ email: email });
 
@@ -21,26 +19,36 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const token = await jwt.sign({ id: user._id }, JWT_SECRET, {
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, {
       expiresIn: "1d",
     });
 
-    const tokens = [
-      { token: token, expiresAt: new Date(Date.now() + 3600000) },
-    ];
-
-    user.tokens = tokens;
-
-    // await Admin.updateOne(
-    //   { email },
-    //   { $set: { tokens, password: hashedPassword } }
-    // );
+    // Store token in database (optional but recommended for token invalidation)
+    user.tokens.push({
+      token: token,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+    });
     await user.save();
+
+    // Set HTTP-only cookie
+    res.cookie("auth_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      sameSite: "strict", // CSRF protection
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      path: "/", // Accessible across all routes
+    });
 
     res.json({
       success: true,
-      message: "Logged in successfully !",
-      data: { token: token, userRole: user.userRole, userId: user._id },
+      message: "Logged in successfully!",
+      data: {
+        userRole: user.userRole,
+        userId: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+      },
     });
   } catch (err) {
     console.error("Error during login:", err);

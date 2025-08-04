@@ -1,40 +1,27 @@
 const User = require("../../models/user");
-const { generateErrorResponse } = require("../../helper/response");
 
 const logout = async (req, res) => {
   try {
-    const { email } = req.body;
+    // Remove the current token from the user's tokens array
+    req.user.tokens = req.user.tokens.filter((tokenObj) => {
+      return tokenObj.token !== req.token;
+    });
 
-    if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "user not found" });
-    }
+    await req.user.save();
 
-    const user = await User.findOne({ email });
+    // Clear the cookie
+    res.clearCookie("auth_token", {
+      path: "/",
+    });
 
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "user not found" });
-    }
-
-    // Clear all tokens for the user
-    user.tokens = []; // Empty the array
-    await user.save();
-
-    return res
-      .status(200)
-      .json({ success: true, message: "user logout successfully" });
-  } catch (error) {
-    console.log("Logout API : ", error);
-
-    return res
-      .status(500)
-      .json(generateErrorResponse("Some internal server error", error.message));
+    res.json({
+      success: true,
+      message: "Logged out successfully!",
+    });
+  } catch (err) {
+    console.error("Error during logout:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-module.exports = {
-  logout,
-};
+module.exports = { logout };
