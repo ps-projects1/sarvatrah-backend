@@ -11,6 +11,8 @@ const storage = multer.diskStorage({
       callback(null, "public/data/hotel");
     } else if (req.path === "/hotel/add-hotel") {
       callback(null, "public/data/hotel");
+    } else if (req.path.includes("/update-hotel")) {
+      callback(null, "public/data/hotel");
     } else if (req.baseUrl === "/holidays") {
       callback(null, "public/data/holidays");
     } else if (req.baseUrl === "/activity") {

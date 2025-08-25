@@ -3,6 +3,7 @@ const {
   generateResponse,
 } = require("../../helper/response");
 const { HolidayPackage } = require("../../models/holidaysPackage");
+const { hotelCollection } = require("../../models/hotel");
 const Joi = require("joi");
 
 const addHolidayPackage = async (req, res) => {
@@ -36,9 +37,34 @@ const addHolidayPackage = async (req, res) => {
       startCity,
       itinerary,
     } = req.body;
+    let selectedHotel;
 
     itinerary = JSON.parse(itinerary);
-    console.log(typeof itinerary);
+    console.log("itinerary >>> ", typeof itinerary);
+    // Check default selected hotel
+    for (const item of itinerary) {
+      if (item.stay) {
+        const existingDefaultHotel = await hotelCollection.findOne({
+          state: item.state,
+          city: item.city,
+          defaultSelected: true,
+        });
+
+        if (!existingDefaultHotel) {
+          return res
+            .status(404)
+            .json(
+              generateErrorResponse(
+                `Cannot found default selected hotel for ${item.state}, ${item.city}`
+              )
+            );
+        }
+        selectedHotel = existingDefaultHotel._id;
+        itinerary.hotel_id = selectedHotel;
+      }
+    }
+    console.log(itinerary);
+    
 
     // Validate required fields
     const schema = Joi.object({

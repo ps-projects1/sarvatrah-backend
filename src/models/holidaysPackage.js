@@ -41,6 +41,10 @@ const dayItinerarySchema = new dbs.Schema(
     subtitle: String,
     description: { type: String, required: true },
     stay: { type: Boolean, default: false },
+    hotel_id : {
+      type: dbs.Schema.Types.ObjectId,
+      ref: "Hotel",
+    },
     state: { type: String },
     city: { type: String },
     mealsIncluded: [
