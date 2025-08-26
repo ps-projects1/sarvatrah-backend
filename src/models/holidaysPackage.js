@@ -64,6 +64,7 @@ const dayItinerarySchema = new dbs.Schema(
 // Vehicle Price Schema
 const vehiclePriceSchema = new dbs.Schema(
   {
+    vehicle_id: { type: String, required: true },
     vehicleType: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
   },

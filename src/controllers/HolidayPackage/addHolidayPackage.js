@@ -1,9 +1,22 @@
+/**
+ * 1)
+ * 2)
+ * 3)
+ * 4)
+ * 5) Take all itinerary with stay get the city and state and add the hotelId
+ * 6) now base on that object select lowest price from the vehicle
+ * 7) calculate the total price of the package for per person
+ * 8) save the package
+ * 9) return the response
+ */
+
 const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
 const { HolidayPackage } = require("../../models/holidaysPackage");
 const { hotelCollection } = require("../../models/hotel");
+const { vehicleCollection } = require("../../models/vehicle");
 const Joi = require("joi");
 
 const addHolidayPackage = async (req, res) => {
@@ -34,37 +47,11 @@ const addHolidayPackage = async (req, res) => {
       priceMarkup,
       inflatedPercentage,
       active,
+      vehicles,
       startCity,
       itinerary,
     } = req.body;
     let selectedHotel;
-
-    itinerary = JSON.parse(itinerary);
-    console.log("itinerary >>> ", typeof itinerary);
-    // Check default selected hotel
-    for (const item of itinerary) {
-      if (item.stay) {
-        const existingDefaultHotel = await hotelCollection.findOne({
-          state: item.state,
-          city: item.city,
-          defaultSelected: true,
-        });
-
-        if (!existingDefaultHotel) {
-          return res
-            .status(404)
-            .json(
-              generateErrorResponse(
-                `Cannot found default selected hotel for ${item.state}, ${item.city}`
-              )
-            );
-        }
-        selectedHotel = existingDefaultHotel._id;
-        itinerary.hotel_id = selectedHotel;
-      }
-    }
-    console.log(itinerary);
-    
 
     // Validate required fields
     const schema = Joi.object({
@@ -103,11 +90,12 @@ const addHolidayPackage = async (req, res) => {
       refundableDays: Joi.number().default(0),
       include: Joi.string(),
       exclude: Joi.string(),
-      // itinerary: Joi.array().items(Joi.object()).required(),
+      itinerary: Joi.array().items(Joi.object()).required(),
       priceMarkup: Joi.number().default(0),
       inflatedPercentage: Joi.number().default(0),
       active: Joi.boolean().default(false),
       startCity: Joi.string().trim(),
+      vehicles: Joi.array().items(Joi.string()),
     });
 
     const { error } = schema.validate({
@@ -145,8 +133,31 @@ const addHolidayPackage = async (req, res) => {
         );
     }
 
-    // Check if the package already exists
+    // Validate the images
+    if (!req.files || req.files.length === 0) {
+      return res
+        .status(400)
+        .json(
+          generateErrorResponse(
+            "Validation Error",
+            "At least one image is required"
+          )
+        );
+    }
+
+    // Check if theme image is provided
+    if (!req.files.themeImg) {
+      return res
+        .status(400)
+        .json(
+          generateErrorResponse("Validation Error", "Theme image is required")
+        );
+    }
+
+    // check if the package already exists with package name, selectType and uniqueId
     const existingPackage = await HolidayPackage.findOne({
+      packageName: packageName,
+      selectType: selectType,
       uniqueId: uniqueId,
     });
 
@@ -161,27 +172,96 @@ const addHolidayPackage = async (req, res) => {
         );
     }
 
-    // Validate the images
-    if (!req.files || req.files.length === 0) {
+    // check refundable or not
+    if (cancellationPolicyType === "refundble") {
+      if (refundablePercentage <= 0 || refundableDays <= 0) {
+        return res
+          .status(400)
+          .json(
+            generateErrorResponse(
+              "Validation Error",
+              "For refundable packages, refundable percentage and refundable days must be greater than 0"
+            )
+          );
+      }
+    }
+
+    // Check if vehicles are provided
+    if (!vehicles || vehicles.length === 0) {
       return res
         .status(400)
         .json(
           generateErrorResponse(
             "Validation Error",
-            "At least one image is required"
+            "At least one vehicle ID is required"
           )
         );
     }
-    console.log(req.files.themeImg);
 
-    // Check if theme image is provided
-    if (!req.files.themeImg) {
-      return res
-        .status(400)
-        .json(
-          generateErrorResponse("Validation Error", "Theme image is required")
-        );
+    // Validate each vehicle ID
+    for (const vehicleId of vehicles) {
+      const existingVehicle = await vehicleCollection.findById(vehicleId);
+      if (!existingVehicle) {
+        return res
+          .status(404)
+          .json(
+            generateErrorResponse(
+              "Invalid Vehicle ID",
+              `Vehicle with ID ${vehicleId} does not exist`
+            )
+          );
+      }
     }
+
+    itinerary = JSON.parse(itinerary);
+    // Check default selected hotel
+    for (const item of itinerary) {
+      if (item.stay) {
+        const existingDefaultHotel = await hotelCollection.findOne({
+          state: item.state,
+          city: item.city,
+          defaultSelected: true,
+        });
+
+        if (!existingDefaultHotel) {
+          return res
+            .status(404)
+            .json(
+              generateErrorResponse(
+                `Cannot found default selected hotel for ${item.state}, ${item.city}`
+              )
+            );
+        }
+        selectedHotel = existingDefaultHotel._id;
+        itinerary.hotel_id = selectedHotel;
+      }
+    }
+
+    // calculate the total price of the package for per person
+    let totalPackagePrice = 0;
+    let totalVehiclePrice = 0;
+    let totalHotelPrice = 0;
+    let totalInflatedPrice = 0;
+    let totalPriceMarkup = 0;
+
+    // lowest price from the vehicle
+    const lowestVehiclePrices = vehicles.sort((a, b) => a.price - b.price)[0]
+      .price;
+
+    // hotel price from the selected hotel
+    for (const item of itinerary) {
+      if (item.stay && item.hotel_id) {
+        const hotel = await hotelCollection.findById(item.hotel_id);
+        if (hotel) {
+          if(hotel.roomType == "standard"){
+            totalHotelPrice += hotel.rooms.occupancyRates[0];
+          }
+        }
+      }
+    }
+
+    totalPackagePrice += lowestVehiclePrices;
+    
 
     // Process uploaded files
     const convertPath = (path) =>
@@ -232,6 +312,7 @@ const addHolidayPackage = async (req, res) => {
       startCity: startCity ? startCity.trim() : "",
       themeImg,
       images,
+      vehicles,
     });
 
     // Save the new package to the database
