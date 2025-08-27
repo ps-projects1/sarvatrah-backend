@@ -1,15 +1,3 @@
-/**
- * 1)
- * 2)
- * 3)
- * 4)
- * 5) Take all itinerary with stay get the city and state and add the hotelId
- * 6) now base on that object select lowest price from the vehicle
- * 7) calculate the total price of the package for per person
- * 8) save the package
- * 9) return the response
- */
-
 const {
   generateErrorResponse,
   generateResponse,
@@ -52,6 +40,9 @@ const addHolidayPackage = async (req, res) => {
       itinerary,
     } = req.body;
     let selectedHotel;
+    
+    itinerary = await JSON.parse(itinerary);
+    destinationCity = JSON.parse(destinationCity);
 
     // Validate required fields
     const schema = Joi.object({
@@ -120,6 +111,7 @@ const addHolidayPackage = async (req, res) => {
       refundableDays,
       include,
       exclude,
+      itinerary,
       priceMarkup,
       inflatedPercentage,
       active,
@@ -212,8 +204,6 @@ const addHolidayPackage = async (req, res) => {
           );
       }
     }
-
-    itinerary = JSON.parse(itinerary);
     // Check default selected hotel
     for (const item of itinerary) {
       if (item.stay) {
@@ -237,32 +227,6 @@ const addHolidayPackage = async (req, res) => {
       }
     }
 
-    // calculate the total price of the package for per person
-    let totalPackagePrice = 0;
-    let totalVehiclePrice = 0;
-    let totalHotelPrice = 0;
-    let totalInflatedPrice = 0;
-    let totalPriceMarkup = 0;
-
-    // lowest price from the vehicle
-    const lowestVehiclePrices = vehicles.sort((a, b) => a.price - b.price)[0]
-      .price;
-
-    // hotel price from the selected hotel
-    for (const item of itinerary) {
-      if (item.stay && item.hotel_id) {
-        const hotel = await hotelCollection.findById(item.hotel_id);
-        if (hotel) {
-          if(hotel.roomType == "standard"){
-            totalHotelPrice += hotel.rooms.occupancyRates[0];
-          }
-        }
-      }
-    }
-
-    totalPackagePrice += lowestVehiclePrices;
-    
-
     // Process uploaded files
     const convertPath = (path) =>
       path.replace(/\\/g, "/").replace("public/", "");
@@ -279,6 +243,7 @@ const addHolidayPackage = async (req, res) => {
       path: `http://127.0.0.1:3232/${convertPath(file.path)}`,
       mimetype: file.mimetype,
     }));
+    
 
     // Create a new holiday package
     const newHolidayPackage = new HolidayPackage({
@@ -312,7 +277,7 @@ const addHolidayPackage = async (req, res) => {
       startCity: startCity ? startCity.trim() : "",
       themeImg,
       images,
-      vehicles,
+      vehiclePrices: vehicles,
     });
 
     // Save the new package to the database

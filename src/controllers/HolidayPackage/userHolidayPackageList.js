@@ -40,9 +40,7 @@ const userHolidayPackageList = async (req, res) => {
           filter["packageDuration.nights"] = nightsNum;
         }
       }
-    }
-    console.log("Filter Object:", filter);
-    
+    }    
 
     // Get total count of documents for pagination info
     const totalHolidayPackages = await HolidayPackage.countDocuments(filter);
@@ -63,6 +61,7 @@ const userHolidayPackageList = async (req, res) => {
 
     // Calculate total pages
     const totalPages = Math.ceil(totalHolidayPackages / limit);
+    console.log(holidayPackages);
 
     // Response data with pagination info
     const responseData = {

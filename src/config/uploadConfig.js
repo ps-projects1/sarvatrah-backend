@@ -6,7 +6,6 @@ const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // Base path for all holiday images
     let uploadPath = "public/images/holidays/";
-
     // Create subfolder based on field name
     if (file.fieldname === "themeImg") {
       uploadPath += "theme-images/";

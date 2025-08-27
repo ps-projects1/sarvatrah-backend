@@ -71,20 +71,6 @@ const vehiclePriceSchema = new dbs.Schema(
   { _id: false }
 );
 
-// Available Vehicle Schema
-const availableVehicleSchema = new dbs.Schema(
-  {
-    vehicleType: { type: String, required: true },
-    price: { type: Number, required: true, min: 0 },
-    rate: { type: Number, min: 0 },
-    seatLimit: { type: Number, min: 1 },
-    vehicle_id: { type: String, required: true },
-    brandName: String,
-    modelName: String,
-  },
-  { _id: false }
-);
-
 // Image Schema
 const imageSchema = new dbs.Schema(
   {
@@ -163,7 +149,6 @@ const holidayPackageSchema = new dbs.Schema(
     images: [imageSchema],
     itinerary: [dayItinerarySchema],
     vehiclePrices: [vehiclePriceSchema],
-    availableVehicle: [availableVehicleSchema],
   },
   {
     timestamps: true, // Adds createdAt and updatedAt automatically
