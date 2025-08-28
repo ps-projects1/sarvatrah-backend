@@ -8,10 +8,13 @@ const categorySchema = dbs.Schema({
   name: String,
 });
 
-const availabilitySchema = dbs.Schema({
-  startDate: String,
-  endDate: String,
-});
+const availabilitySchema = dbs.Schema(
+  {
+    startDate: String,
+    endDate: String,
+  },
+  { _id: false }
+);
 
 const roomSchema = dbs.Schema({
   roomType: String,
@@ -23,7 +26,7 @@ const roomSchema = dbs.Schema({
   occupancyRates: [Number],
   amenities: [String],
   duration: [availabilitySchema],
-});
+},{ _id: false });
 
 const hotelSchema = dbs.Schema(
   {
@@ -53,6 +56,7 @@ const hotelSchema = dbs.Schema(
         path: { type: String },
         mimetype: { type: String },
       },
+      {_id: false },
     ],
     active: { type: Boolean, default: false },
     defaultSelected: { type: Boolean, default: false },

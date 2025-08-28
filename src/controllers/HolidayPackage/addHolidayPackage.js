@@ -41,8 +41,9 @@ const addHolidayPackage = async (req, res) => {
     } = req.body;
     let selectedHotel;
     
-    itinerary = await JSON.parse(itinerary);
+    itinerary = await JSON.parse(JSON.stringify(JSON.parse(itinerary)));
     destinationCity = JSON.parse(destinationCity);
+    vehicles = JSON.parse(vehicles);
 
     // Validate required fields
     const schema = Joi.object({
@@ -191,21 +192,22 @@ const addHolidayPackage = async (req, res) => {
     }
 
     // Validate each vehicle ID
-    for (const vehicleId of vehicles) {
-      const existingVehicle = await vehicleCollection.findById(vehicleId);
+    for (const x of vehicles) {   
+      const existingVehicle = await vehicleCollection.findById(x.vehicle_id);
       if (!existingVehicle) {
         return res
           .status(404)
           .json(
             generateErrorResponse(
               "Invalid Vehicle ID",
-              `Vehicle with ID ${vehicleId} does not exist`
+              `Vehicle with ID ${x.vehicle_id} does not exist`
             )
           );
       }
     }
     // Check default selected hotel
     for (const item of itinerary) {
+      
       if (item.stay) {
         const existingDefaultHotel = await hotelCollection.findOne({
           state: item.state,
@@ -222,8 +224,8 @@ const addHolidayPackage = async (req, res) => {
               )
             );
         }
-        selectedHotel = existingDefaultHotel._id;
-        itinerary.hotel_id = selectedHotel;
+        selectedHotel = existingDefaultHotel._id;        
+        item.hotel_id = selectedHotel;
       }
     }
 
