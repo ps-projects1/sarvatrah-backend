@@ -9,7 +9,7 @@ const {
 
 // Route
 route.get("/get-holiday-package", getHolidayPackage);
-route.get("/get-holiday-package-details/:id", holidayPackageDetails);
+route.post("/get-holiday-package-details/:id", holidayPackageDetails);
 route.post(
   "/add-holiday-package",
   upload.fields([
