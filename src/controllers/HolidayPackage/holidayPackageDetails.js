@@ -9,7 +9,7 @@ const moment = require("moment");
 
 const holidayPackageDetails = async (req, res) => {
   try {
-    let { startDate, adults, roomType, vehicle, hotels } = req.body;
+    let { startDate, rooms, vehicle, hotels } = req.body;
     const { id } = req.params;
 
     // Validate ID
@@ -30,8 +30,6 @@ const holidayPackageDetails = async (req, res) => {
         .status(404)
         .json(generateErrorResponse("Not Found", "Holiday package not found"));
     }
-
-    console.log("Holiday Package Found:", holidayPackages.packageDuration.days);
 
     // End date calculation
     let endDate = null;
@@ -54,62 +52,6 @@ const holidayPackageDetails = async (req, res) => {
     }
 
     // Calculate package price
-    // let packagePrice = 0;
-
-    // for (const iti of holidayPackages.itinerary) {
-    //   if (iti.stay && iti.hotel_id) {
-    //     try {
-    //       const hotel = await hotelCollection.findById(iti.hotel_id);
-
-    //       if (!hotel) {
-    //         console.warn(`Hotel not found for ID: ${iti.hotel_id}`);
-    //         continue;
-    //       }
-
-    //       if (startDate && endDate) {
-    //         const availableRoom = hotel.rooms.find((room) => {
-    //           if (room.roomType === (roomType || "Standard")) {
-    //             return room.duration.some((period) => {
-    //               const hotelStartDate = new Date(period.startDate);
-    //               const hotelEndDate = new Date(period.endDate);
-    //               return (
-    //                 new Date(startDate) >= hotelStartDate &&
-    //                 new Date(endDate) <= hotelEndDate
-    //               );
-    //             });
-    //           }
-    //           return false;
-    //         });
-
-    //         if (availableRoom) {
-    //           const rate =
-    //             availableRoom.occupancyRates[
-    //               Math.min(adults - 1, availableRoom.occupancyRates.length - 1)
-    //             ] || 0;
-    //           packagePrice += rate;
-    //           console.log(
-    //             `Added ${rate} for ${iti.dayNo} day stay in ${hotel.hotelName}`
-    //           );
-    //         } else {
-    //           console.warn(
-    //             `No available ${
-    //               roomType || "Standard"
-    //             } room from ${startDate} to ${endDate} in hotel: ${
-    //               hotel.hotelName
-    //             }`
-    //           );
-    //         }
-    //       }
-    //     } catch (error) {
-    //       console.error(
-    //         `Error processing hotel ${iti.hotel_id}:`,
-    //         error.message
-    //       );
-    //     }
-    //   }
-    // }
-
-    // Calculate package price
     let packagePrice = 0;
 
     // Decide which hotels to use: user provided or default itinerary
@@ -117,6 +59,7 @@ const holidayPackageDetails = async (req, res) => {
       Array.isArray(hotels) && hotels.length > 0
         ? hotels.map((h) => ({ hotel_id: h })) // normalize structure
         : holidayPackages.itinerary.filter((i) => i.stay && i.hotel_id);
+    console.log(hotelsToCheck);
 
     for (const h of hotelsToCheck) {
       try {
@@ -124,15 +67,13 @@ const holidayPackageDetails = async (req, res) => {
           h.hotel_id,
           "-__v -createdAt -updatedAt"
         );
+        if (!hotel) continue;
 
-        if (!hotel) {
-          console.warn(`Hotel not found for ID: ${h.hotel_id}`);
-          continue;
-        }
+        for (const bookedRoom of rooms) {
+          const { roomType, adults, children } = bookedRoom;
 
-        if (startDate && endDate) {
           const availableRoom = hotel.rooms.find((room) => {
-            if (room.roomType === (roomType || "Standard")) {
+            if (room.roomType === roomType) {
               return room.duration.some((period) => {
                 const hotelStartDate = new Date(period.startDate);
                 const hotelEndDate = new Date(period.endDate);
@@ -146,26 +87,45 @@ const holidayPackageDetails = async (req, res) => {
           });
 
           if (availableRoom) {
-            // Pick correct occupancy rate based on adults
-            const rate =
+            // adult pricing
+            const adultRate =
               availableRoom.occupancyRates[
                 Math.min(adults - 1, availableRoom.occupancyRates.length - 1)
               ] || 0;
-            console.log(
-              availableRoom.occupancyRates[0],
-              Math.min(adults, availableRoom.occupancyRates.length - 1)
-            );
+            packagePrice += adultRate;
 
-            packagePrice += rate;
-            console.log(`Added ${rate} for stay in ${hotel.hotelName}`);
-          } else {
-            console.warn(
-              `No available ${
-                roomType || "Standard"
-              } room from ${startDate} to ${endDate} in hotel: ${
-                hotel.hotelName
-              }`
+            // child pricing (if provided in schema)
+            if (children) {
+              if (children.withBed && availableRoom.child?.childWithBedPrice) {
+                packagePrice +=
+                  children.withBed * availableRoom.child.childWithBedPrice;
+              }
+              if (
+                children.withoutBed &&
+                availableRoom.child?.childWithoutBedPrice
+              ) {
+                packagePrice +=
+                  children.withoutBed *
+                  availableRoom.child.childWithoutBedPrice;
+              }
+            }
+
+            console.log(
+              `Added ${adultRate} + children for ${roomType} in ${hotel.hotelName}`
             );
+          } else {
+            return res
+              .status(400)
+              .json(
+                generateErrorResponse(
+                  "Bad Request",
+                  `No available ${roomType} room from ${startDate} to ${endDate} in hotel: ${hotel.hotelName}`
+                )
+              );
+            // Or just log and continue
+            // console.warn(
+            //   `No available ${roomType} room from ${startDate} to ${endDate} in hotel: ${hotel.hotelName}`
+            // );
           }
         }
       } catch (error) {
