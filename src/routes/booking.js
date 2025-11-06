@@ -12,7 +12,11 @@ router.post(
 );
 
 // Get all bookings
-// router.get('/', bookingController.getAllBookings);
+router.get(
+  "/fetchBooking",
+  authMiddleware,
+  bookingController.fetchBooking.fetchBooking
+);
 
 // Get a single booking by ID
 // router.get('/:id', bookingController.getBookingById);
