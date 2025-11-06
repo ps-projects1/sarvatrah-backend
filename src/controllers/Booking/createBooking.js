@@ -16,8 +16,11 @@ const createBooking = async (req, res) => {
       vehicleId,
       hotelId,
       packageId,
+      travellers,
+      billingInfo,
     } = req.body;
 
+    // ✅ Basic required field validation
     if (
       !userId ||
       !startDate ||
@@ -31,51 +34,72 @@ const createBooking = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ message: "Please provide all required fields" });
+        .json({ message: "Please provide all required fields." });
     }
 
-    const status = "Pending";
-
-    // Check if user exists
+    // ✅ Check if user exists and role is valid
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found." });
     if (user.userRole !== 0)
-      return res.status(400).json({ message: "Only user can book" });
+      return res.status(400).json({ message: "Only users can book." });
 
-    // Check if package exists
-    const package = await holidayPackageModel.findById(packageId);
-    if (!package)
-      return res.status(404).json({ message: "Holiday package not found" });
+    // ✅ Validate linked references
+    const holidayPackage = await holidayPackageModel.findById(packageId);
+    if (!holidayPackage)
+      return res.status(404).json({ message: "Holiday package not found." });
 
-    // Check if vehicle exists
     const vehicle = await vehicleCollection.findById(vehicleId);
-    if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
+    if (!vehicle)
+      return res.status(404).json({ message: "Vehicle not found." });
 
-    // Check if hotel exists
     const hotel = await hotelCollection.findById(hotelId);
-    if (!hotel) return res.status(404).json({ message: "Hotel not found" });
+    if (!hotel) return res.status(404).json({ message: "Hotel not found." });
 
-    // Create a new booking
+    // ✅ Validate travellers data
+    if (!Array.isArray(travellers) || travellers.length === 0) {
+      return res.status(400).json({ message: "Travellers data is required." });
+    }
+
+    // Ensure exactly one lead traveller
+    const leadTravellers = travellers.filter((t) => t.isLeadTraveller === true);
+    if (leadTravellers.length !== 1) {
+      return res.status(400).json({
+        message: "There must be exactly one lead traveller in the booking.",
+      });
+    }
+
+    // ✅ Validate totalTraveller count
+    if (travellers.length !== Number(totalTraveller)) {
+      return res.status(400).json({
+        message: "Total travellers count does not match the provided data.",
+      });
+    }
+
+    // ✅ Create a new booking
     const newBooking = new Booking({
       user: userId,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      bookingDate: new Date(bookingDate), // ✅ Convert to Date
-      totalPrice: Number(totalPrice),
-      totalTraveller: Number(totalTraveller),
-      status,
+      holidayPackageId: packageId,
       vehicleId,
       hotelId,
-      holidayPackageId: packageId,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      bookingDate: new Date(bookingDate),
+      totalTraveller: Number(totalTraveller),
+      totalPrice: Number(totalPrice),
+      status: "Pending",
+      travellers,
+      billingInfo,
     });
 
     await newBooking.save();
 
-    res
-      .status(201)
-      .json({ message: "Booking created successfully", booking: newBooking });
+    return res.status(201).json({
+      message: "Booking created successfully.",
+      booking: newBooking,
+    });
   } catch (error) {
-    res
+    console.error("Error creating booking:", error);
+    return res
       .status(500)
       .json({ message: "Error creating booking", error: error.message });
   }
