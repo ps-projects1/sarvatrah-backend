@@ -1,4 +1,4 @@
-const Booking = require("../../models/Booking");
+const Booking = require("../../models/booking");
 const holidayPackageModel = require("../../models/holidaysPackage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
