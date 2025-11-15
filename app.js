@@ -6,6 +6,8 @@ const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 
+const listEndpoints = require("express-list-endpoints");
+
 const connectDB = require("./src/config/dbConfig");
 
 // Routes
@@ -115,5 +117,13 @@ app.use((req, res, next) => {
 app.use((error, req, res, next) => {
   res.status(error.status || 500).json({ message: { error: error.message } });
 });
+
+console.log('\n📍 ===== ALL API ENDPOINTS =====\n');
+const endpoints = listEndpoints(app);
+endpoints.forEach(endpoint => {
+  const methods = endpoint.methods.join(', ');
+  console.log(`[${methods}]\t\t${endpoint.path}`);
+});
+console.log('\n================================\n');
 
 module.exports = app;
