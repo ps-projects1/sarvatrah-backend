@@ -44,6 +44,7 @@ app.use(
       "http://localhost:5173",
       "https://v1.sarvatrah.com",
       "http://127.0.0.1:5173",
+      "https://sarvatrah-frontend.vercel.app", 
     ],
     credentials: true,
     exposedHeaders: "*",
