@@ -36,17 +36,27 @@ const secretKey = process.env.SECRET_KEY;
 connectDB();
 
 // Middleware
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3232",
+  "http://localhost:5173",
+  "https://v1.sarvatrah.com",
+  "http://127.0.0.1:5173",
+  "https://sarvatrah-frontend.vercel.app",
+  "https://sarvatrah-admin-k9qze72es-sarvatrahs-projects.vercel.app"
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3232",
-      "http://localhost:5173",
-      "https://v1.sarvatrah.com",
-      "http://127.0.0.1:5173",
-      "https://sarvatrah-frontend.vercel.app", 
-      "https://sarvatrah-admin-k9qze72es-sarvatrahs-projects.vercel.app",
-    ],
+    origin: function (origin, callback) {
+      // allow requests with no origin (like mobile apps, curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = `The CORS policy for this site does not allow access from the specified Origin.`;
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
     credentials: true,
     exposedHeaders: "*",
     optionsSuccessStatus: 200,
@@ -54,6 +64,7 @@ app.use(
     allowedHeaders: "*",
   })
 );
+
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
