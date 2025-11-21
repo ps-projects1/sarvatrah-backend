@@ -7,7 +7,7 @@ const Joi = require("joi");
 
 const addHotel = async (req, res) => {
   try {
-    const {
+    var {
       hotelType,
       hotelName,
       address,
@@ -22,6 +22,12 @@ const addHotel = async (req, res) => {
       encryptedRooms,
       defaultSelected,
     } = req.body;
+
+  console.log(defaultSelected)
+
+    if(defaultSelected === undefined){
+      defaultSelected = false;
+    }
 
     const schema = Joi.object({
       defaultSelected: Joi.boolean().truthy("true").falsy("false").required(),
