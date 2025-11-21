@@ -1,11 +1,13 @@
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const User = require("../models/user");
+const Admin = require("../models/admin");
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const authMiddleware = async (req, res, next) => {
   // Get token from cookie instead of header
   const token = req.cookies.auth_token || req.headers["authorization"]?.split(" ")[1];
+  console.log(token)
 
   if (!token) {
     return res.status(401).json({
@@ -16,11 +18,14 @@ const authMiddleware = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userObject = await User.findOne({
+    const decoded = jwt.verify(token, "!@#$%^&*()");
+    const userObject = await Admin.findOne({
       _id: decoded.id,
       "tokens.token": token, // Verify token exists in user's tokens array
     });
+
+
+    console.log(userObject)
 
     if (!userObject) {
       return res.status(401).json({
