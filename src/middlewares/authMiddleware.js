@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const User = require("../models/user");
+const Admin = require("../models/admin");
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const authMiddleware = async (req, res, next) => {
@@ -17,9 +18,10 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const userObject = await User.findOne({
+    console.log("Decoded JWT:", decoded);
+    const userObject = await Admin.findOne({
       _id: decoded.id,
-      "tokens.token": token, // Verify token exists in user's tokens array
+      
     });
 
     if (!userObject) {

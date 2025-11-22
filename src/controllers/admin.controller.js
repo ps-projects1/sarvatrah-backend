@@ -10,9 +10,13 @@ const adminLogin = async (req, res) => {
   const { email, password } = req.body;
   // password
   // test@123
-
+  if (!email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Username and password are required" });
+  }
   try {
-    const admin = await User.findOne({ email: email });
+    const admin = await Admin.findOne({ email: email });
 
     if (!admin) {
       return res.status(400).json({ message: "Invalid username or password" });
@@ -58,7 +62,7 @@ const adminLogin = async (req, res) => {
 
 // --------------------- Admin Register ---------------------
 const adminRegister = async (req, res) => {
-  const { username, password } = req.body;
+  const { username,email, password } = req.body;
   if (!username || !password) {
     return res.send({
       success: false,
@@ -75,12 +79,13 @@ const adminRegister = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     let hashedPassword = await bcrypt.hash(password, salt);
 
-    adminObj = await Admin.create({ username, password: hashedPassword });
+    adminObj = await Admin.create({ username, password: hashedPassword ,email});
     return res.send({ success: true, message: "Accout created successfully" });
   } catch (err) {
     return res.send({ success: false, message: err.message });
   }
 };
+
 
 // --------------------- Admin Change Password ---------------------
 const adminChangePassword = async (req, res) => {
