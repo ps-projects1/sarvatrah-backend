@@ -1,6 +1,20 @@
 const express = require("express");
-const packageCollection = require("../models/holidaysPackage");
+const { HolidayPackage } = require("../models/holidaysPackage");
 const upload = require("../utils/file_upload/upload");
+
+const router = express.Router();
+
+router.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    const fileData = req.file;
+    // Handle the uploaded file data
+    res.status(200).json({ message: "File uploaded successfully", fileData });
+  } catch (error) {
+    res.status(500).json({ message: "Error uploading file", error });
+  }
+});
+
+module.exports = router;
 const route = express.Router();
 const app = express();
 const moment = require("moment");
@@ -730,8 +744,44 @@ route.post("/package/itinerary", async (req, res, next) => {
   res.status(200).json(updatedPackageInfo);
 });
 
-route.post("/createPackage", upload.array("files", 10), async (req, res) => {
+
+
+const multer = require("multer");
+
+// Simplified storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, callback) {
+    // Use a more reliable way to determine destination
+    if (req.baseUrl === "/holidays") {
+      callback(null, "public/data/holidays");
+    } else {
+      callback(null, "public/data/uploads");
+    }
+  },
+  filename: function (req, file, callback) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExtension = file.originalname.split(".").pop();
+    const newFilename = `holiday-${uniqueSuffix}.${fileExtension}`;
+    callback(null, newFilename);
+  },
+});
+
+const uploads = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  }
+});
+
+// Updated route handler
+route.post("/createPackage", uploads.fields([
+  { name: 'themeImage', maxCount: 1 },
+  { name: 'files', maxCount: 10 }
+]), async (req, res) => {
   try {
+    console.log("Files received:", req.files);
+    console.log("Body received:", req.body);
+
     const {
       packageName,
       selectType,
@@ -752,120 +802,120 @@ route.post("/createPackage", upload.array("files", 10), async (req, res) => {
       priceMarkup,
       partialPaymentPercentage,
       startCity,
-      totalTransferRate,
-      totalHotelRate,
-      noOfTransfers,
-      noOfHotels,
-      noOfActivities,
-      availableVehicles,
-      inflatedPrice,
+      days,
+      nights,
+      refundablePercentage,
+      refundableDays,
+      inflatedPercentage,
+      active
     } = req.body;
 
-    // Parse JSON fields
-    const packageDuration = JSON.parse(req.body.packageDuration || "{}");
-    const vehiclePrices = JSON.parse(req.body.vehiclePrices || "[]");
-    const itinerary = JSON.parse(req.body.itinerary || "[]");
-
-    // Validate itinerary types
-    itinerary.forEach((item, index) => {
-      item.dayItinerary.forEach((element, subIndex) => {
-        if (!element?.type) {
-          throw new Error(
-            `Itinerary type is required at day ${index + 1}, index ${subIndex}.`
-          );
-        }
+    // Validate required fields
+    if (!packageName || !uniqueId) {
+      return res.status(400).json({
+        success: false,
+        message: "Package name and unique ID are required"
       });
-    });
+    }
 
-    // Convert windows-style path and remove "public/"
-    const convertPath = (path) =>
-      path.replace(/\\/g, "/").replace("public/", "");
+    // File handling
+    const themeFile = req.files?.themeImage?.[0];
+    const additionalFiles = req.files?.files || [];
 
-    // Files
-    const [themeFile, ...subFiles] = req.files;
-    const themeImg = themeFile && {
+    if (!themeFile) {
+      return res.status(400).json({
+        success: false,
+        message: "Theme image is required"
+      });
+    }
+
+    const convertPath = (path) => path.replace(/\\/g, "/").replace("public/", "");
+
+    const themeImg = {
       filename: themeFile.filename,
       path: `http://127.0.0.1:3232/${convertPath(themeFile.path)}`,
       mimetype: themeFile.mimetype,
     };
 
-    const images = subFiles.map((file) => ({
+    const images = additionalFiles.map((file) => ({
       filename: file.filename,
       path: `http://127.0.0.1:3232/${convertPath(file.path)}`,
       mimetype: file.mimetype,
     }));
 
-    // Normalize destinationCity
-    const destinations = Array.isArray(destinationCity)
-      ? destinationCity
-      : [destinationCity];
+    // Parse JSON fields with error handling
+    let itinerary = [];
+    let destinationCities = [];
+    let availableVehicles = [];
 
-    // Fetch vehicle details
-    const vehicleInput = JSON.parse(availableVehicles || "[]");
-    const vehicleDetails = await Promise.all(
-      vehicleInput.map(async (x) => {
-        const vehicleData = await vehicleCollection.findById(x._id).lean();
-        if (!vehicleData) throw new Error(`Vehicle with ID ${x._id} not found`);
-        return {
-          rate: x.price,
-          vehicle_id: x._id,
-          vehicleType: vehicleData.vehicleType,
-          seatLimit: vehicleData.seatLimit,
-          brandName: vehicleData.brandName,
-          modelName: vehicleData.modelName,
-          inventory: vehicleData.inventory,
-          luggageCapacity: vehicleData.luggageCapacity,
-        };
-      })
-    );
+    try {
+      itinerary = JSON.parse(req.body.itinerary || "[]");
+      destinationCities = JSON.parse(destinationCity || "[]");
+      availableVehicles = JSON.parse(req.body.availableVehicle || "[]");
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid JSON data in itinerary or destinationCity"
+      });
+    }
 
-    const objToBeAdded = {
+    // Create package object
+    const packageObj = {
       packageName,
-      packageDuration,
+      packageDuration: {
+        days: parseInt(days) || 1,
+        nights: parseInt(nights) || 0
+      },
       themeImg,
       selectType,
       uniqueId,
       packageType,
-      destinationCity: destinations,
+      destinationCity: destinationCities,
       highlights,
-      status,
-      createPilgrimage,
-      displayHomepage,
-      partialPayment,
-      recommendedPackage,
-      vehiclePrices,
-      paymentDueDays,
-      partialPaymentPercentage,
+      status: status === "true",
+      createPilgrimage: createPilgrimage === "true",
+      displayHomepage: displayHomepage === "true",
+      partialPayment: partialPayment === "true",
+      recommendedPackage: recommendedPackage === "true",
+      paymentDueDays: parseInt(paymentDueDays) || 0,
+      partialPaymentPercentage: parseFloat(partialPaymentPercentage) || 0,
       cancellationPolicyType,
-      roomLimit,
+      roomLimit: parseInt(roomLimit) || 1,
       include,
       exclude,
+      priceMarkup: parseFloat(priceMarkup) || 0,
+      inflatedPercentage: parseFloat(inflatedPercentage) || 0,
+      refundablePercentage: parseFloat(refundablePercentage) || 0,
+      refundableDays: parseInt(refundableDays) || 0,
       itinerary,
       images,
-      priceMarkup,
-      active: true,
-      inventory: 0,
+      availableVehicle: availableVehicles,
+      active: active !== "false",
       startCity,
-      totalTransferRate,
-      totalHotelRate,
-      noOfTransfers,
-      noOfHotels,
-      noOfActivities,
-      availableVehicle: vehicleDetails,
-      inflatedPercentage: inflatedPrice,
+      inventory: 0
     };
+    console.log(packageObj)
 
-    const packageObj = await packageCollection.create(objToBeAdded);
+    const createdPackage = await HolidayPackage.create(packageObj);
+    console.log(createdPackage)
 
     return res.status(200).json({
-      Status: "Package Created",
-      data: packageObj,
+      success: true,
+      message: "Package Created Successfully",
+      data: createdPackage
     });
+
   } catch (err) {
     console.error("Error creating package:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message 
+    });
   }
 });
+
+
 
 route.put(
   "/package/update/vehicle/:packageId/:vehicleId",
