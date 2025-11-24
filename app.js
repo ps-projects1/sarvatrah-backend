@@ -11,6 +11,7 @@ const listEndpoints = require("express-list-endpoints");
 const connectDB = require("./src/config/dbConfig");
 
 // Routes
+const footerRoutes = require("./src/routes/footer");
 const inventriesRouts = require("./src/routes/inventry");
 const holidayRouts = require("./src/routes/holidays");
 const actRouts = require("./src/routes/act");
@@ -91,6 +92,8 @@ app.use("/vehicle", vehicleRoutes);
 app.use("/state", stateRoutes);
 app.use("/city", cityRoutes);
 app.use("/holiday", holidayRoutes);
+
+app.use("/api/footer", footerRoutes);
 
 // Test route
 app.post("/submit", (req, res) => {

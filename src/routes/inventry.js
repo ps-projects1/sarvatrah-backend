@@ -16,7 +16,7 @@ route.get("/", (req, res, next) => {
   });
 });
 
-route.post("/vehicle", upload.single("file"), async (req, res, next) => {
+route.post("/vehicle", upload.array("images", 10), async (req, res, next) => {
   try {
     const {
       vehicleType,
