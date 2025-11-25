@@ -77,15 +77,19 @@ const adminRegister = async (req, res) => {
   try {
     let adminObj = await Admin.findOne({ username });
 
-    return res.json({
-         admin :adminObj
-    })
+    
 
     if (adminObj) {
       return res.send({ success: false, message: "Account already exist" });
     }
     const salt = await bcrypt.genSalt(10);
     let hashedPassword = await bcrypt.hash(password, salt);
+
+    const allAdmins = await Admin.find({})
+  
+    return res.json({
+      all:allAdmins
+    })
 
     adminObj = await Admin.create({ username, password: hashedPassword ,email});
     return res.send({ success: true, message: "Accout created successfully" });
