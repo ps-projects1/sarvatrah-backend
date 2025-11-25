@@ -70,6 +70,10 @@ const adminRegister = async (req, res) => {
     });
   }
 
+  return res.json({
+    body : req.body
+  })
+
   try {
     let adminObj = await Admin.findOne({ username });
 
