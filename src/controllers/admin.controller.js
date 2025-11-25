@@ -70,12 +70,16 @@ const adminRegister = async (req, res) => {
     });
   }
 
-  return res.json({
+ /*  return res.json({
     body : req.body
-  })
+  }) */
 
   try {
     let adminObj = await Admin.findOne({ username });
+
+    return res.json({
+         admin :adminObj
+    })
 
     if (adminObj) {
       return res.send({ success: false, message: "Account already exist" });
