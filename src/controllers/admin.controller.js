@@ -77,8 +77,6 @@ const adminRegister = async (req, res) => {
   try {
     let adminObj = await Admin.findOne({ username });
 
-    
-
     if (adminObj) {
       return res.send({ success: false, message: "Account already exist" });
     }
@@ -89,7 +87,11 @@ const adminRegister = async (req, res) => {
   
    
 
-    adminObj = await Admin.create({  password: hashedPassword ,email});
+  adminObj = await Admin.create({
+  username,
+  email,
+  password: hashedPassword
+});
     return res.send({ success: true, message: "Accout created successfully" });
   } catch (err) {
     return res.send({ success: false, message: err.message });
