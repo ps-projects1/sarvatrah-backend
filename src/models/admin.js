@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 
 const adminSchema = new Schema({
   email: { type: String, unique: true },
+  username:{type:String},
   password: { type: String, required: true },
   tokens: [{ token: { type: String }, expiresAt: { type: Date } }],
 });
