@@ -123,6 +123,11 @@ app.post("/token/:type", (req, res) => {
   });
 });
 
+app.get("/test",(req, res)=>{
+
+  res.json({test:"Working"})
+})
+
 // 404 handler
 app.use((req, res, next) => {
   const error = new Error("Not Found 404");
@@ -131,10 +136,7 @@ app.use((req, res, next) => {
 });
 
 
-app.get("/test",(req, res)=>{
 
-  res.json({test:"Working"})
-})
 
 // Global error handler
 app.use((error, req, res, next) => {
