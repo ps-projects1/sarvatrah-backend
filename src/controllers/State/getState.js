@@ -6,7 +6,7 @@ const State = require("../../models/state");
 
 const getState = async (req, res) => {
   try {
-    const states = await State.find({}, "-__v -country");
+    const states = await State.find({}, "-__v ");
 
     if (!states || states.length === 0) {
       return res

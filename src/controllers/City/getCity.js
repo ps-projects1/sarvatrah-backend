@@ -13,7 +13,7 @@ const getCity = async (req, res) => {
       query.state = stateId;
     }
 
-    const cities = await City.find(query, "-__v -state -country");
+    const cities = await City.find(query, "-__v ");
 
     if (!cities || cities.length === 0) {
       return res

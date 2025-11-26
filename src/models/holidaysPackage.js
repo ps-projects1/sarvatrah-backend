@@ -45,8 +45,26 @@ const dayItinerarySchema = new dbs.Schema(
       type: dbs.Schema.Types.ObjectId,
       ref: "Hotel",
     },
-    state: { type: String },
-    city: { type: String },
+    state: {
+  type: {
+    _id: String,
+    name: String,
+    isoCode: String,
+    country: String
+  },
+  required: false
+},
+
+city: {
+  type: {
+    _id: String,
+    name: String,
+    state: String,
+    country: String
+  },
+  required: false
+},
+
     mealsIncluded: [
       {
         type: String,
@@ -120,6 +138,18 @@ const holidayPackageSchema = new dbs.Schema(
         trim: true,
       },
     ],
+    availableVehicle: [
+  {
+    vehicleType: { type: String, required: true },
+    price: { type: Number, required: true },
+    rate: { type: Number, default: 0 },
+    seatLimit: { type: Number, default: 0 },
+    vehicle_id: { type: String },
+    brandName: String,
+    modelName: String
+  }
+],
+
     highlights: { type: String, required: true },
     createPilgrimage: { type: Boolean, default: false },
     displayHomepage: { type: Boolean, default: false },
