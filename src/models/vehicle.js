@@ -11,7 +11,7 @@ const vehicleSchema = dbs.Schema(
     luggageCapacity: Number,
     rate: Number,
     // img: { filename: String, path: String, mimetype: String },
-    facilties: String,
+    facilties: {type:[String]},
     active: Boolean,
     vehicleCategory: String,
     city: String,

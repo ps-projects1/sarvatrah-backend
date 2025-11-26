@@ -15,64 +15,75 @@ route.get("/", (req, res, next) => {
     data: req.params,
   });
 });
+ 
+route.post(
+  "/vehicle",
+  upload.array("images", 10), 
+  async (req, res) => {
+    try {
+      console.log("BODY RECEIVED:", req.body);
+      console.log("FILES RECEIVED:", req.files);
 
-route.post("/vehicle", upload.array("images", 10), async (req, res, next) => {
-  try {
-    const {
-      vehicleType,
-      brandName = "",
-      modelName = "",
-      inventory = "",
-      seatLimit = 0,
-      luggageCapacity = 0,
-      rate = 0,
-      active,
-      facilties,
-      vehicleCategory,
-      city,
-    } = req.query;
+      const {
+        vehicleType,
+        brandName = "",
+        modelName = "",
+        inventory = 0,
+        seatLimit = 0,
+        luggageCapacity = 0,
+        rate = 0,
+        active = "false",
+        facilties,
+        vehicleCategory = "",
+        city = "",
+      } = req.body;
 
-    // Parse facilities if they are sent as JSON
-    let facilitiesParsed = facilties;
-    if (facilties && typeof facilties === "string") {
-      try {
-        facilitiesParsed = JSON.parse(facilties);
-      } catch (e) {
-        return res.status(400).json({ error: "Invalid facilities format" });
+      // ---------- Parse facilities ----------
+      let facilitiesParsed = facilties;
+      if (facilties && typeof facilties === "string") {
+        try {
+          facilitiesParsed = JSON.parse(facilties);
+        } catch (e) {
+          facilitiesParsed = facilties; // fallback to raw string
+        }
       }
-    }
 
-    // Create vehicle document
-    const addVehicle = await vehicleCollection.create({
-      vehicleType,
-      brandName,
-      modelName,
-      inventory,
-      seatLimit,
-      luggageCapacity,
-      rate,
-      active,
-      city,
-      facilties: facilitiesParsed,
-      vehicleCategory,
-      img: req.file
-        ? {
-            filename: req.file.filename,
-            path:
-              "http://127.0.0.1:3232/" + req.file.path.replace("public/", ""),
-            mimetype: req.file.mimetype,
-          }
-        : null,
-    });
-    res.status(200).json({
-      data: addVehicle,
-      message: "Vehicle added successfully",
-    });
-  } catch (error) {
-    console.error("Error adding vehicle:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+      // ---------- Map uploaded images ----------
+      const images = (req.files || []).map((file) => ({
+        filename: file.filename,
+        path:
+          "http://127.0.0.1:3232/" +
+          file.path.replace(/\\/g, "/").replace(/^public\//, ""),
+        mimetype: file.mimetype,
+      }));
+
+      // ---------- Create Vehicle ----------
+      const addVehicle = await vehicleCollection.create({
+        vehicleType,
+        brandName,
+        modelName,
+        inventory: Number(inventory),
+        seatLimit: Number(seatLimit),
+        luggageCapacity: Number(luggageCapacity),
+        rate: Number(rate),
+        active: active === "true" || active === true,
+        city,
+        facilties: facilitiesParsed,
+        vehicleCategory,
+        img: images, // <-- SAVE IMAGE ARRAY HERE
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: addVehicle,
+        message: "Vehicle added successfully",
+      });
+    } catch (error) {
+      console.error("Error adding vehicle:", error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
   }
-});
+);
 
 route.post("/categories", async (req, res) => {
   try {
