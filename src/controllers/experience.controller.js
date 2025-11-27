@@ -101,6 +101,45 @@ const updateExperience = async (req, res) => {
 
 
 
+const calenderEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid Experience ID" });
+    }
+
+    const experience = await experienceModel.findById(id);
+    if (!experience) {
+      return res.status(404).json({ error: "Experience not found" });
+    }
+
+    const eventData = req.body;  // single event object from frontend
+
+    // Inject experienceId
+    eventData.experienceId = id;
+
+    // SAVE event
+    const savedEvent = await eventCalenderModel.create(eventData);
+   
+    // Attach to experience
+    if (!experience.calender_events) experience.calender_events = [];
+    experience.calender_events.push(savedEvent._id);
+
+   await experience.save({ validateModifiedOnly: true });
+
+
+    return res.status(200).json(savedEvent);
+
+  } catch (error) {
+    console.log("ERROR in addCalendarEvent:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+
+
+
 
 // const updateExperience = async (req, res) => {
 //   console.log(req.body, "body");
@@ -199,7 +238,8 @@ const getExperience = async (req, res) => {
     .populate("meeting_point")
     .populate("availability_detail")
     .populate("pricing")
-    .populate("start_time");
+    .populate("start_time")
+    .populate("calender_events");
   return res.status(200).json(experience);
 };
 
@@ -210,7 +250,8 @@ const getAllExperience = async (req, res) => {
     .populate("meeting_point")
     .populate("availability_detail")
     .populate("pricing")
-    .populate("start_time");
+    .populate("start_time")
+    .populate("calender_events");
 
   return res.status(200).json(experience);
 };
@@ -459,4 +500,5 @@ module.exports = {
   updateExperienceWithTiming,
   updateExperienceWithStartTime,
   insertManyPricing,
+  calenderEvent
 };

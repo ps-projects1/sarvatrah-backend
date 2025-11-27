@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+/* const mongoose = require("mongoose"); */
 
 /**
  too save calender events 
@@ -6,11 +6,11 @@ const mongoose = require("mongoose");
  single events
  */
 
-const eventSchema = new mongoose.Schema({
+/* const eventSchema = new mongoose.Schema({
   event: mongoose.Schema.Types.Mixed,
-});
+}); */
 
-module.exports = mongoose.model("EventCalender", eventSchema);
+/* module.exports = mongoose.model("EventCalender", eventSchema); */
 
 /**
   startDate: { type: Date, default: Date.now },
@@ -60,3 +60,45 @@ module.exports = mongoose.model("EventCalender", eventSchema);
     },
   },
  */
+
+const mongoose = require("mongoose");
+
+const eventCalendarSchema = new mongoose.Schema({
+  experienceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Experience",
+    required: true,
+  },
+
+  // recurring, single date, blackout – all share RRULE structure
+  rrule: {
+    freq: { type: String },            // weekly / daily / monthly
+    interval: { type: Number, default: 1 },
+    byweekday: [{ type: String }],     // ['mo','tu','we']
+    bymonth: [{ type: Number }],       // [1,3,5]
+    dtstart: { type: String },         // "2025-02-01T09:00"
+    until: { type: String },           // "2025-06-01"
+    count: { type: Number },
+    byhour: [{ type: Number }],        // 9, 11 etc
+  },
+
+  start_time: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TimingAvailability",
+    },
+  ],
+
+  participant: {
+    minimum: { type: Number, default: 1 },
+    maximum: { type: Number, default: 100 },
+  },
+
+  // For event rendering in FullCalendar
+  title: { type: String },
+
+  isBlackout: { type: Boolean, default: false },
+
+}, { timestamps: true });
+
+module.exports = mongoose.model("EventCalendar", eventCalendarSchema);
