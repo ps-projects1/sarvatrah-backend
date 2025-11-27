@@ -46,14 +46,14 @@ const expirenceSchema = mongoose.Schema({
     detail_dec: String,
   },
   video_link: [String],
-  img_link: {
+  img_link: [
+  {
     filename: String,
     path: String,
-    mimetype: {
-      type: String,
-      default: "image/png",
-    },
-  },
+    mimetype: String
+  }
+]
+  ,
   inclusions: {
     short_des: String,
     detail_dec: String,
@@ -137,7 +137,7 @@ const expirenceSchema = mongoose.Schema({
   calender_events: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "EventCalender",
+      ref: "EventCalendar",
     },
   ],
   groupSize: {

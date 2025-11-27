@@ -16,6 +16,10 @@ route.post(
   "/updateAvailability/:id",
   experienceModel.updateExperienceWithAvailability
 );
+
+route.post("/meetingPoint/:id", experienceModel.insertManyMeetingPoint);
+
+route.post("/events/:id", experienceModel.calenderEvent);
 route.post("/updateTiming/:id", experienceModel.updateExperienceWithTiming);
 route.post("/pricing/:id", experienceModel.insertManyPricing);
 module.exports = route;
