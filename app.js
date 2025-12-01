@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
+const path = require("path");
 
 const listEndpoints = require("express-list-endpoints");
 
@@ -94,6 +95,10 @@ app.use("/city", cityRoutes);
 app.use("/holiday", holidayRoutes);
 
 app.use("/api/footer", footerRoutes);
+
+
+
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 // Test route
 app.post("/submit", (req, res) => {
