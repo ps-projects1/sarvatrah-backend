@@ -1,5 +1,6 @@
 const route = require("express").Router();
 const upload = require("../config/uploadConfig");
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const {
   getHolidayPackage,
   addHolidayPackage,
@@ -7,19 +8,20 @@ const {
   userHolidayPackageList
 } = require("../controllers/HolidayPackage/holidayPackage.controller");
 
-// Route
-route.get("/get-holiday-package", getHolidayPackage);
-route.post("/get-holiday-package-details/:id", holidayPackageDetails);
+// Routes with generalLimiter
+route.get("/get-holiday-package", generalLimiter, getHolidayPackage);
+route.post("/get-holiday-package-details/:id", generalLimiter, holidayPackageDetails);
+route.get("/user-holiday-package-list", generalLimiter, userHolidayPackageList);
+
+// Route with file upload → conditional limiter
 route.post(
   "/add-holiday-package",
   upload.fields([
     { name: "themeImg", maxCount: 1 },
     { name: "packageImages", maxCount: 10 },
   ]),
+  limitIfFiles(uploadLimiter), // only limit if files exist
   addHolidayPackage
 );
-
-// User Holiday Package List
-route.get("/user-holiday-package-list", userHolidayPackageList);
 
 module.exports = route;

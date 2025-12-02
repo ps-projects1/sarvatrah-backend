@@ -3,14 +3,15 @@ const packageCollection = require("../models/pilgriPackage");
 const upload = require("../utils/file_upload/upload");
 const route = express.Router();
 const jwt = require("jsonwebtoken");
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 
-route.get("/", async (req, res, next) => {
+route.get("/",generalLimiter, async (req, res, next) => {
   res.status(200).json({
     message: "pilgri package homepage",
   });
 });
 
-route.get("/packages", async (req, res, next) => {
+route.get("/packages",generalLimiter, async (req, res, next) => {
   const packageList = await packageCollection.find({});
   const getIcons = (args) => {
     const temps = [];
@@ -50,7 +51,7 @@ route.get("/packages", async (req, res, next) => {
   res.status(200).json(filterList);
 });
 
-route.get("/package/details/:id", async (req, res, next) => {
+route.get("/package/details/:id",generalLimiter, async (req, res, next) => {
   const packageID = req.params.id;
   const packageInfo = await packageCollection.findById(packageID);
 
@@ -62,7 +63,7 @@ route.post(
   upload.fields([
     { name: "file", maxCount: 1 },
     { name: "subfile", maxCount: 10 },
-  ]),
+  ]),limitIfFiles(uploadLimiter),
   async (req, res, next) => {
     const packageName = req.query.packageName;
     const packageDuration = JSON.parse(req.query.packageDuration);
@@ -98,7 +99,7 @@ route.post(
   }
 );
 
-route.post("/package/itinerary", async (req, res, next) => {
+route.post("/package/itinerary",generalLimiter, async (req, res, next) => {
   const dayCount = req.query.dayCount;
   const packageID = req.query.packageID;
   const place = req.query.place;
