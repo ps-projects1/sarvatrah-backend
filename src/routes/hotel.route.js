@@ -7,15 +7,27 @@ const {
 } = require("../controllers/Hotel/hotel.controller");
 const authMiddleware = require("../middlewares/authMiddleware");
 const upload = require("../utils/file_upload/upload");
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 
-route.get("/get-hotels", getHotel);
-route.delete("/delete-hotel", authMiddleware, deleteHotel);
+// Apply generalLimiter for get and delete routes
+route.get("/get-hotels", generalLimiter, getHotel);
+route.delete("/delete-hotel", authMiddleware, generalLimiter, deleteHotel);
+
+// Apply uploadLimiter conditionally for add and update hotel routes
 route.put(
   "/update-hotel",
   upload.array("files", 10),
   authMiddleware,
+  limitIfFiles(uploadLimiter),
   updateHotel
 );
-route.post("/add-hotel", upload.array("files", 10), authMiddleware, addHotel);
+
+route.post(
+  "/add-hotel",
+  upload.array("files", 10),
+  authMiddleware,
+  limitIfFiles(uploadLimiter),
+  addHotel
+);
 
 module.exports = route;

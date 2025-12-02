@@ -6,11 +6,12 @@ const {
   getVehicle,
 } = require("../../src/controllers/Vehicle/vehicle.controller");
 const authMiddleware = require("../middlewares/authMiddleware");
+const { generalLimiter } = require("../middlewares/rateLimit");
 
-// Vehicle routes
-route.get("/get-vehicles", getVehicle);
-route.put("/update-vehicle/:id", authMiddleware, updateVehicle);
-route.delete("/delete-vehicle/:id", authMiddleware, deleteVehicle);
-route.post("/add-vehicle", authMiddleware, addVehicle);
+// Vehicle routes with generalLimiter
+route.get("/get-vehicles", generalLimiter, getVehicle);
+route.put("/update-vehicle/:id", authMiddleware, generalLimiter, updateVehicle);
+route.delete("/delete-vehicle/:id", authMiddleware, generalLimiter, deleteVehicle);
+route.post("/add-vehicle", authMiddleware, generalLimiter, addVehicle);
 
 module.exports = route;

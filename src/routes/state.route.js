@@ -1,7 +1,8 @@
 const route = require("express").Router();
 const { getState } = require("../controllers/State/state.controller");
+const { generalLimiter } = require("../middlewares/rateLimit");
 
-// Route to get all states
-route.get("/get-state", getState);
+// Apply generalLimiter to prevent abuse
+route.get("/get-state", generalLimiter, getState);
 
 module.exports = route;
