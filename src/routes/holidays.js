@@ -1,7 +1,7 @@
 const express = require("express");
 const { HolidayPackage } = require("../models/holidaysPackage");
 const upload = require("../utils/file_upload/upload");
-
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const router = express.Router();
 
 router.post("/upload", upload.single("file"), async (req, res) => {
@@ -26,13 +26,13 @@ app.use("/data", express.static("public/data"));
 const { hotelCollection } = require("../models/hotel");
 const { vehicleCollection } = require("../models/vehicle");
 
-route.get("/", async (req, res, next) => {
+route.get("/", generalLimiter,async (req, res, next) => {
   res.status(200).json({
     message: "holiday package homepage",
   });
 });
 
-route.post("/package-list", async (req, res, next) => {
+route.post("/package-list",generalLimiter, async (req, res, next) => {
   let lowestVehiclePriceAllData = [];
   let hotelOccupancyRateAllData = [];
   let priceMarkupData = [];
@@ -217,7 +217,7 @@ route.post("/package-list", async (req, res, next) => {
   }
 });
 
-route.get("/packages", async (req, res, next) => {
+route.get("/packages",generalLimiter, async (req, res, next) => {
   const packageList = await packageCollection.find({ active: true });
   // Get Icon
   const getIcons = (args) => {
@@ -252,7 +252,7 @@ route.get("/packages", async (req, res, next) => {
   res.status(200).json(filterList);
 });
 
-route.get("/package/gallery/:id", async (req, res, next) => {
+route.get("/package/gallery/:id",generalLimiter, async (req, res, next) => {
   const packageID = req.params.id;
   const packageInfo = await packageCollection.findById(packageID);
 
@@ -260,7 +260,7 @@ route.get("/package/gallery/:id", async (req, res, next) => {
   res.status(200).json({ message: "working" });
 });
 
-route.post("/package/details/:id", async (req, res, next) => {
+route.post("/package/details/:id",generalLimiter, async (req, res, next) => {
   try {
     const date = new Date();
     const currentDate = `${date.getDate()}-${
@@ -407,7 +407,7 @@ route.post("/package/details/:id", async (req, res, next) => {
   }
 });
 
-route.get("/package/iti/:id", async (req, res, next) => {
+route.get("/package/iti/:id",generalLimiter, async (req, res, next) => {
   const packageID = req.params.id;
   let sortedCar;
   const packageInfo = await packageCollection.findById(packageID);
@@ -495,7 +495,7 @@ route.get("/package/iti/:id", async (req, res, next) => {
   res.status(200).json(result);
 });
 
-route.get("/package/iti/vehicle/update/:id", async (req, res, next) => {
+route.get("/package/iti/vehicle/update/:id",generalLimiter, async (req, res, next) => {
   const packageID = req.params.id;
   let sortedCar;
   const packageInfo = await packageCollection.findById(packageID);
@@ -549,7 +549,7 @@ route.get("/package/iti/vehicle/update/:id", async (req, res, next) => {
   res.status(200).json(sortedCar);
 });
 
-route.get("/package/iti/hotel/update/:id", async (req, res, next) => {
+route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next) => {
   try {
     const packageID = req.params.id;
     const packageInfo = await packageCollection.findById(packageID);
@@ -666,7 +666,7 @@ route.get("/package/iti/hotel/update/:id", async (req, res, next) => {
   }
 });
 
-route.post("/package", upload.array("files", 10), async (req, res, next) => {
+route.post("/package", upload.array("files", 10),limitIfFiles(uploadLimiter), async (req, res, next) => {
   try {
     const packageName = req.body.packageName;
     const packageDuration = JSON.parse(req.body.packageDuration);
@@ -716,7 +716,7 @@ route.post("/package", upload.array("files", 10), async (req, res, next) => {
   }
 });
 
-route.post("/package/itinerary", async (req, res, next) => {
+route.post("/package/itinerary",generalLimiter,async (req, res, next) => {
   const dayCount = req.body.dayCount;
   const packageID = req.body.packageID;
   const place = req.body.place;

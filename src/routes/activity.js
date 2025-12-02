@@ -4,8 +4,9 @@ const upload = require("../utils/file_upload/upload");
 const route = express.Router();
 const jwt = require("jsonwebtoken");
 const activityCollection = require("../models/activityPackage");
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 
-route.get("/", async (req, res, next) => {
+route.get("/",generalLimiter, async (req, res, next) => {
   const activityLists = await activityCollection.find({});
   const response = activityLists.map((data) => {
     return {
@@ -101,7 +102,7 @@ route.get("/", async (req, res, next) => {
 
 route.post(
   "/",
-  upload.fields([{ name: "file", maxCount: 1 }]),
+  upload.fields([{ name: "file", maxCount: 1 }]),limitIfFiles(uploadLimiter),
   async (req, res, next) => {
     try {
       // Extracting data from query parameters
@@ -185,7 +186,7 @@ route.post(
   }
 );
 
-route.get("/:id", async (req, res, next) => {
+route.get("/:id",generalLimiter, async (req, res, next) => {
   const id = req.params.id;
   const activity = await activityCollection.findById(id);
   res.status(200).json({ data: activity });

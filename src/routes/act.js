@@ -4,8 +4,10 @@ const upload = require("../utils/file_upload/upload");
 const activityModel = require("../models/activities");
 const { hotelCollection } = require("../models/hotel");
 const { vehicleCollection } = require("../models/vehicle");
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 
-route.get("/", async (req, res, next) => {
+
+route.get("/",generalLimiter, async (req, res, next) => {
   const id = req.query.id;
   const type = req.query.type;
   console.log(id, type);
@@ -35,7 +37,7 @@ route.get("/", async (req, res, next) => {
   }
 });
 
-route.get("/lists", async (req, res, next) => {
+route.get("/lists",generalLimiter, async (req, res, next) => {
   const person = req.query.counts;
 });
 route.post("/", upload.single("file"), async (req, res, next) => {
