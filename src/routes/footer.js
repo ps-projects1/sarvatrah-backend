@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const WebsiteFooter = require("../models/footerContact");
+const { generalLimiter } = require("../middlewares/rateLimit");
 
 // ===============================
 // Get Footer Details
 // ===============================
-router.get("/", async (req, res) => {
+router.get("/", generalLimiter, async (req, res) => {
   try {
     let footer = await WebsiteFooter.findOne();
 
@@ -27,11 +28,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-
 // ===============================
 // Update Footer Details
 // ===============================
-router.put("/", async (req, res) => {
+router.put("/", generalLimiter, async (req, res) => {
   try {
     const {
       contactData,
