@@ -1,24 +1,27 @@
 const express = require("express");
 const { hotelCollection, Category } = require("../models/hotel");
 const { vehicleCollection } = require("../models/vehicle");
-// const multer = require('multer')
 const upload = require("../utils/file_upload/upload");
+const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const jwt = require("jsonwebtoken");
 
 const route = express.Router();
 const { v4: uuidv4 } = require("uuid");
 const imgID = uuidv4();
 
-route.get("/", (req, res, next) => {
+// Home route
+route.get("/", generalLimiter, (req, res, next) => {
   res.status(200).json({
     message: "inventries homepage",
     data: req.params,
   });
 });
- 
+
+// Add vehicle → apply conditional uploadLimiter
 route.post(
   "/vehicle",
-  upload.array("images", 10), 
+  upload.array("images", 10),
+  limitIfFiles(uploadLimiter),
   async (req, res) => {
     try {
       console.log("BODY RECEIVED:", req.body);
@@ -38,17 +41,17 @@ route.post(
         city = "",
       } = req.body;
 
-      // ---------- Parse facilities ----------
+      // Parse facilities
       let facilitiesParsed = facilties;
       if (facilties && typeof facilties === "string") {
         try {
           facilitiesParsed = JSON.parse(facilties);
         } catch (e) {
-          facilitiesParsed = facilties; // fallback to raw string
+          facilitiesParsed = facilties;
         }
       }
 
-      // ---------- Map uploaded images ----------
+      // Map uploaded images
       const images = (req.files || []).map((file) => ({
         filename: file.filename,
         path:
@@ -57,7 +60,7 @@ route.post(
         mimetype: file.mimetype,
       }));
 
-      // ---------- Create Vehicle ----------
+      // Create Vehicle
       const addVehicle = await vehicleCollection.create({
         vehicleType,
         brandName,
@@ -70,7 +73,7 @@ route.post(
         city,
         facilties: facilitiesParsed,
         vehicleCategory,
-        img: images, // <-- SAVE IMAGE ARRAY HERE
+        img: images,
       });
 
       return res.status(200).json({
@@ -85,10 +88,10 @@ route.post(
   }
 );
 
-route.post("/categories", async (req, res) => {
+// Add category → generalLimiter
+route.post("/categories", generalLimiter, async (req, res) => {
   try {
     const { categoryType, name } = req.query;
-    console.log("categoryType, name", { categoryType, name });
     const newCategory = new Category({ category: categoryType, name });
     await newCategory.save();
     res.status(201).json({
@@ -102,113 +105,101 @@ route.post("/categories", async (req, res) => {
   }
 });
 
-route.get("/getVehicleDetails/:id", async (req, res) => {
-  let id = req.params.id;
-  console.log(id, typeof id);
-
-  if (!id) {
-    return res.send({ success: false, message: "Id is required" });
-  }
+// Get vehicle details → generalLimiter
+route.get("/getVehicleDetails/:id", generalLimiter, async (req, res) => {
+  const id = req.params.id;
+  if (!id) return res.send({ success: false, message: "Id is required" });
 
   try {
-    let vehicleObj = await vehicleCollection.findById(id);
-    if (!vehicleObj) {
-      return res.send({ success: false, message: "Vehicle not found" });
-    }
+    const vehicleObj = await vehicleCollection.findById(id);
+    if (!vehicleObj) return res.send({ success: false, message: "Vehicle not found" });
     return res.send({ success: true, message: "", data: vehicleObj });
   } catch (err) {
     return res.send({ success: false, message: err.message });
   }
 });
 
-route.post("/hotel", upload.array("files", 10), async (req, res, next) => {
-  let getRoomInfo = req.body.rooms;
-  const decryptRoomInfo = JSON.parse(getRoomInfo);
-  const rooms = decryptRoomInfo;
+// Add hotel → conditional uploadLimiter
+route.post(
+  "/hotel",
+  upload.array("files", 10),
+  limitIfFiles(uploadLimiter),
+  async (req, res, next) => {
+    const getRoomInfo = req.body.rooms;
+    const rooms = JSON.parse(getRoomInfo);
 
-  const hotelType = req.body.hotelType;
-  const hotelName = req.body.hotelName;
-  const address = req.body.address;
-  const state = req.body.state;
-  const city = req.body.city;
-  const pincode = req.body.pincode;
-  const phoneNumber = req.body.phoneNumber;
-  const email = req.body.email;
-  const contactPerson = req.body.contactPerson;
-  const description = req.body.description;
+    const hotelType = req.body.hotelType;
+    const hotelName = req.body.hotelName;
+    const address = req.body.address;
+    const state = req.body.state;
+    const city = req.body.city;
+    const pincode = req.body.pincode;
+    const phoneNumber = req.body.phoneNumber;
+    const email = req.body.email;
+    const contactPerson = req.body.contactPerson;
+    const description = req.body.description;
 
-  const imgs = req.files.map((file) => {
-    return {
+    const imgs = req.files.map((file) => ({
       filename: file.filename,
       path:
         "http://127.0.0.1:3232/" +
         file.path.replace(/\\/g, "/").replace("public/", ""),
       mimetype: file.mimetype,
+    }));
+
+    const objToBeAdded = {
+      hotelType,
+      hotelName,
+      address,
+      state,
+      city,
+      pincode,
+      phoneNumber,
+      email,
+      contactPerson,
+      description,
+      imgs,
+      rooms,
     };
-  });
 
-  let objToBeAdded = {
-    hotelType: hotelType,
-    hotelName: hotelName,
-    address: address,
-    state: state,
-    city: city,
-    pincode: pincode,
-    phoneNumber: phoneNumber,
-    email: email,
-    contactPerson: contactPerson,
-    description: description,
-    imgs: imgs,
-    rooms: rooms,
-  };
-
-  //console.log(objToBeAdded);
-  let hotelObj = await hotelCollection.create(objToBeAdded);
-
-  return res.status(200).json({ Status: "Hotel uploaded", data: hotelObj });
-});
-
-route.get("/getHotelDetails/:id", async (req, res) => {
-  let id = req.params.id;
-  if (!id) {
-    return res.send({ success: false, message: "Id is required" });
+    const hotelObj = await hotelCollection.create(objToBeAdded);
+    return res.status(200).json({ Status: "Hotel uploaded", data: hotelObj });
   }
+);
+
+// Get hotel details → generalLimiter
+route.get("/getHotelDetails/:id", generalLimiter, async (req, res) => {
+  const id = req.params.id;
+  if (!id) return res.send({ success: false, message: "Id is required" });
 
   try {
-    let hotelObj = await hotelCollection.findById(id);
+    const hotelObj = await hotelCollection.findById(id);
     return res.send({ success: true, message: "", data: hotelObj });
   } catch (err) {
     return res.send({ success: false, message: err.message });
   }
 });
 
-route.get("/getHotelList", async (req, res) => {
+// Get hotel list → generalLimiter
+route.get("/getHotelList", generalLimiter, async (req, res) => {
   let { city } = req.query;
+  if (!city)
+    return res.status(400).send({ success: false, message: "City parameter is required" });
 
-  if (!city) {
-    return res
-      .status(400)
-      .send({ success: false, message: "City parameter is required" });
-  }
-
-  if (!Array.isArray(city)) {
-    city = [city]; // If city is not an array, convert it to an array
-  }
+  if (!Array.isArray(city)) city = [city];
 
   try {
-    let hotelList = await hotelCollection.find({ city: { $in: city } });
-    return res
-      .status(200)
-      .send({ success: true, message: "", data: hotelList });
+    const hotelList = await hotelCollection.find({ city: { $in: city } });
+    return res.status(200).send({ success: true, message: "", data: hotelList });
   } catch (err) {
     return res.status(500).send({ success: false, message: err.message });
   }
 });
 
-route.get("/getCity", async (req, res) => {
+// Get all cities → generalLimiter
+route.get("/getCity", generalLimiter, async (req, res) => {
   try {
-    // Use the distinct method to get all unique city names from the hotelCollection
-    let cities = await hotelCollection.distinct("city");
+    const cities = await hotelCollection.distinct("city");
     return res.status(200).send({ success: true, message: "", data: cities });
   } catch (err) {
     return res.status(500).send({ success: false, message: err.message });

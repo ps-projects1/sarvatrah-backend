@@ -6,41 +6,51 @@ const { hotelCollection } = require("../../models/hotel");
 
 const getHotel = async (req, res) => {
   try {
-    let { page = 1, limit = 10, city, state } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
+    let { page, limit, city, state } = req.query;
 
     const filter = {};
 
-    if (city) {
-      filter.city = { $regex: new RegExp(city, "i") };
-    }
-
-    if (state) {
-      filter.state = { $regex: new RegExp(state, "i") };
-    }
+    if (city) filter.city = { $regex: new RegExp(city, "i") };
+    if (state) filter.state = { $regex: new RegExp(state, "i") };
 
     let hotelData, total, totalPages;
 
-    // ✅ If both city & state are given → return all results (no pagination)
+    const isPaginationRequested = page !== undefined && limit !== undefined;
+
+    // Convert to number if provided
+    if (isPaginationRequested) {
+      page = parseInt(page);
+      limit = parseInt(limit);
+    }
+
+    // Case 1: both city & state → return all (your existing rule)
     if (city && state) {
       hotelData = await hotelCollection.find(filter);
       total = hotelData.length;
       totalPages = 1;
-    } else {
-      // ✅ Normal pagination
+    }
+    // Case 2: page & limit NOT PROVIDED → return all
+    else if (!isPaginationRequested) {
+      hotelData = await hotelCollection.find(filter);
+      total = hotelData.length;
+      totalPages = 1;
+    }
+    // Case 3: Pagination applied
+    else {
       const skip = (page - 1) * limit;
+
       [hotelData, total] = await Promise.all([
         hotelCollection.find(filter).skip(skip).limit(limit),
-        hotelCollection.countDocuments(filter),
+        hotelCollection.countDocuments(filter)
       ]);
+
       totalPages = Math.ceil(total / limit);
     }
 
     if (!hotelData || hotelData.length === 0) {
       return res.status(404).json({
         status: false,
-        message: "No hotels found matching your criteria...",
+        message: "No hotels found matching your criteria..."
       });
     }
 
@@ -50,17 +60,18 @@ const getHotel = async (req, res) => {
         pagination: {
           total,
           totalPages,
-          currentPage: city && state ? null : page,
-          pageSize: city && state ? null : limit,
-          hasNextPage: city && state ? false : page < totalPages,
-          hasPrevPage: city && state ? false : page > 1,
+          currentPage: isPaginationRequested ? page : null,
+          pageSize: isPaginationRequested ? limit : null,
+          hasNextPage: isPaginationRequested ? page < totalPages : false,
+          hasPrevPage: isPaginationRequested ? page > 1 : false
         },
         filters: {
           city: city || null,
-          state: state || null,
-        },
+          state: state || null
+        }
       })
     );
+
   } catch (error) {
     console.log("Get hotel API :", error);
     return res
@@ -68,6 +79,7 @@ const getHotel = async (req, res) => {
       .json(generateErrorResponse("Some internal server error", error.message));
   }
 };
+
 
 module.exports = {
   getHotel,
