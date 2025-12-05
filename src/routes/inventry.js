@@ -27,7 +27,7 @@ route.post(
       console.log("BODY RECEIVED:", req.body);
       console.log("FILES RECEIVED:", req.files);
 
-      const {
+      const { 
         vehicleType,
         brandName = "",
         modelName = "",

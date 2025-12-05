@@ -1,4 +1,4 @@
 const createBooking = require("./createBooking");
 const fetchBooking = require("./fetchBooking");
-
-module.exports = { createBooking, fetchBooking };
+const calBooking = require("./calBooking");
+module.exports = { createBooking, fetchBooking,calBooking};
