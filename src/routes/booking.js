@@ -1,7 +1,7 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/authMiddleware");
 const bookingController = require("../controllers/Booking/BookingController");
-
+const { calculatePackageCost } = require("../controllers/Booking/calBooking");
 const router = express.Router();
 
 // Create a new booking
@@ -18,6 +18,12 @@ router.get(
   bookingController.fetchBooking.fetchBooking
 );
 
+
+router.post(
+  "/calculateBooking",
+  
+  calculatePackageCost
+)
 // Get a single booking by ID
 // router.get('/:id', bookingController.getBookingById);
 
