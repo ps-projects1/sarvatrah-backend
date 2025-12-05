@@ -16,6 +16,13 @@ const vehicleSchema = dbs.Schema(
     vehicleCategory: String,
     city: String,
     blackout: { start: String, end: String },
+    img: [
+      {
+        filename: String,
+        path: String,
+        mimetype: String,
+      },
+    ],
   },
   {
     timestamps: true,
