@@ -42,7 +42,7 @@ const getHotel = async (req, res) => {
       [hotelData, total] = await Promise.all([
         hotelCollection
           .find(filter)
-          .sort({ createdAt: -1 })   // <-- Correct!
+          .sort({ _id: -1 })  // <-- Correct!
           .skip(skip)
           .limit(limit),
 
