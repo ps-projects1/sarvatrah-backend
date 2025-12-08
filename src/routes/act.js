@@ -51,7 +51,7 @@ route.post("/", upload.single("file"), async (req, res, next) => {
   const description = req.query.description;
   const img = {
     filename: req.file.filename,
-    path: "http://127.0.0.1:3232/" + req.file.path.replace("public/", ""),
+    path: "https://sarvatrah-backend.onrender.com/public/" + req.file.path.replace("public/", ""),
     mimetype: req.file.mimetype,
   };
   await activityModel.create({

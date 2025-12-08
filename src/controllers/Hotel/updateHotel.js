@@ -116,7 +116,7 @@ const updateHotel = async (req, res) => {
     if (req.files && req.files.length > 0) {
       const newImgs = req.files.map(({ filename, path, mimetype }) => ({
         filename,
-        path: `http://127.0.0.1:3232/${path
+        path: `https://sarvatrah-backend.onrender.com/public/${path
           .replace(/\\/g, "/")
           .replace("public/", "")}`,
         mimetype,

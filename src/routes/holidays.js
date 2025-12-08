@@ -679,7 +679,7 @@ route.post("/package", upload.array("files", 10),limitIfFiles(uploadLimiter), as
     const themeImg = {
       filename: req.files[0].filename,
       path:
-        "http://127.0.0.1:3232/" +
+        "https://sarvatrah-backend.onrender.com/public/" +
         path.posix.relative("public", req.files[0].path).replace(/\\/g, "/"),
       mimetype: req.files[0].mimetype,
     };
@@ -688,7 +688,7 @@ route.post("/package", upload.array("files", 10),limitIfFiles(uploadLimiter), as
     const imgs = subFile.map((file) => ({
       filename: file.filename,
       path:
-        "http://127.0.0.1:3232/" +
+        "https://sarvatrah-backend.onrender.com/public/" +
         path.posix.relative("public", file.path).replace(/\\/g, "/"),
       mimetype: file.mimetype,
     }));
@@ -833,7 +833,7 @@ route.post("/createPackage", uploads.fields([
 
     const themeImg = {
       filename: themeFile.filename,
-      path: `https://sarvatrah-backend.onrender.com/public${convertPath(themeFile.path)}`,
+      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`,
       mimetype: themeFile.mimetype,
     };
 
@@ -980,7 +980,7 @@ route.put("/updatePackage",
       if (themeFile) {
         packageObj.themeImg = {
           filename: themeFile.filename,
-          path: `http://127.0.0.1:3232/${convertPath(themeFile.path)}`,
+          path: `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`,
           mimetype: themeFile.mimetype,
         };
       }
@@ -988,7 +988,7 @@ route.put("/updatePackage",
       // Add any newly uploaded additional images
       const newImages = additionalFiles.map((file) => ({
         filename: file.filename,
-        path: `http://127.0.0.1:3232/${convertPath(file.path)}`,
+        path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
         mimetype: file.mimetype,
       }));
 
