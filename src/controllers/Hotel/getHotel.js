@@ -17,21 +17,20 @@ const getHotel = async (req, res) => {
 
     const isPaginationRequested = page !== undefined && limit !== undefined;
 
-    // Convert to number if provided
     if (isPaginationRequested) {
       page = parseInt(page);
       limit = parseInt(limit);
     }
 
-    // Case 1: both city & state → return all (your existing rule)
+    // Case 1: city & state together → return all (SORT REQUIRED)
     if (city && state) {
-      hotelData = await hotelCollection.find(filter);
+      hotelData = await hotelCollection.find(filter).sort({ _id: -1 });
       total = hotelData.length;
       totalPages = 1;
     }
-    // Case 2: page & limit NOT PROVIDED → return all
+    // Case 2: no pagination → return all (SORT REQUIRED)
     else if (!isPaginationRequested) {
-      hotelData = await hotelCollection.find(filter);
+      hotelData = await hotelCollection.find(filter).sort({ _id: -1 });
       total = hotelData.length;
       totalPages = 1;
     }
@@ -42,7 +41,7 @@ const getHotel = async (req, res) => {
       [hotelData, total] = await Promise.all([
         hotelCollection
           .find(filter)
-          .sort({ _id: -1 })  // <-- Correct!
+          .sort({ _id: -1 })         // Latest first
           .skip(skip)
           .limit(limit),
 
@@ -84,7 +83,6 @@ const getHotel = async (req, res) => {
       .json(generateErrorResponse("Some internal server error", error.message));
   }
 };
-
 
 module.exports = {
   getHotel,
