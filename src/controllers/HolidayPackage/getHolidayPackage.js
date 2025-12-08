@@ -6,52 +6,60 @@ const { HolidayPackage } = require("../../models/holidaysPackage");
 
 const getHolidayPackage = async (req, res) => {
   try {
-    // Pagination parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const page = req.query.page ? parseInt(req.query.page) : null;
+    const limit = req.query.limit ? parseInt(req.query.limit) : null;
 
-    // Total documents
-    const totalHolidayPackages = await HolidayPackage.countDocuments({});
+    let holidayPackages;
+    let pagination = null;
 
-    // Query holiday packages with pagination + sorting (latest first)
-    const holidayPackages = await HolidayPackage.find(
-      {},
-      "-__v -createdAt -updatedAt"
-    )
-      .sort({ _id: -1 })   // ⭐ ensures latest first  
-      .skip(skip)
-      .limit(limit);
+    // ✨ CASE 1 — If page & limit BOTH exist → Apply Pagination
+    if (page && limit) {
+      const skip = (page - 1) * limit;
 
-    if (!holidayPackages || holidayPackages.length === 0) {
-      return res
-        .status(404)
-        .json(generateErrorResponse("Not Found", "No holiday packages found"));
+      const totalHolidayPackages = await HolidayPackage.countDocuments();
+
+      holidayPackages = await HolidayPackage.find({}, "-__v -createdAt -updatedAt")
+        .sort({ _id: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      if (!holidayPackages.length) {
+        return res
+          .status(404)
+          .json(generateErrorResponse("Not Found", "No holiday packages found"));
+      }
+
+      pagination = {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems: totalHolidayPackages,
+        totalPages: Math.ceil(totalHolidayPackages / limit),
+        hasNextPage: page * limit < totalHolidayPackages,
+        hasPreviousPage: page > 1,
+      };
+
+    } else {
+      // ✨ CASE 2 — No pagination, return all data
+      holidayPackages = await HolidayPackage.find(
+        {},
+        "-__v -createdAt -updatedAt"
+      ).sort({ _id: -1 });
+
+      if (!holidayPackages.length) {
+        return res
+          .status(404)
+          .json(generateErrorResponse("Not Found", "No holiday packages found"));
+      }
     }
 
-    // Total pages
-    const totalPages = Math.ceil(totalHolidayPackages / limit);
-
-    // Response with pagination info
-    const responseData = {
-      holidayPackages,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalItems: totalHolidayPackages,
-        itemsPerPage: limit,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      },
-    };
-
-    return res.status(200).json(
-      generateResponse(
-        true,
-        "Holiday packages retrieved successfully",
-        responseData
-      )
-    );
+    return res
+      .status(200)
+      .json(
+        generateResponse(true, "Holiday packages retrieved successfully", {
+          holidayPackages,
+          pagination, // null when not paginated
+        })
+      );
   } catch (error) {
     console.log("Get Holiday Packages", error);
     return res
