@@ -236,13 +236,13 @@ const addHolidayPackage = async (req, res) => {
     // Files
     const themeImg = {
       filename: req.files.themeImg[0].filename,
-      path: `http://127.0.0.1:3232/${convertPath(req.files.themeImg[0].path)}`,
+      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(req.files.themeImg[0].path)}`,
       mimetype: req.files.themeImg[0].mimetype,
     };
 
     const images = req.files.packageImages.map((file) => ({
       filename: file.filename,
-      path: `http://127.0.0.1:3232/${convertPath(file.path)}`,
+      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
       mimetype: file.mimetype,
     }));
     
