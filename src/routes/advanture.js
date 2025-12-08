@@ -50,7 +50,7 @@ route.post(
       const themeImg = {
         filename: req.files.file[0].filename,
         path:
-          "http://127.0.0.1:3232/" +
+          "https://sarvatrah-backend.onrender.com/public/" +
           req.files.file[0].path
             .replace("public\\", "")
             .replace(/\\/g, "/")

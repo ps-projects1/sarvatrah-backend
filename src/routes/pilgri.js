@@ -74,14 +74,14 @@ route.post(
     const themeImg = {
       filename: req.files.file[0].filename,
       path:
-        "http://127.0.0.1:3232/" +
+        "https://sarvatrah-backend.onrender.com/public/" +
         req.files.file[0].path.replace("public/", ""),
       mimetype: req.files.file[0].mimetype,
     };
     const imgs = req.files.subfile.map((file) => {
       return {
         filename: file.filename,
-        path: "http://127.0.0.1:3232/" + file.path.replace("public/", ""),
+        path: "https://sarvatrah-backend.onrender.com/public/" + file.path.replace("public/", ""),
         mimetype: file.mimetype,
       };
     });

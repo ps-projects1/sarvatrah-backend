@@ -55,7 +55,7 @@ route.post(
       const images = (req.files || []).map((file) => ({
         filename: file.filename,
         path:
-          "http://127.0.0.1:3232/" +
+          "https://sarvatrah-backend.onrender.com/public/" +
           file.path.replace(/\\/g, "/").replace(/^public\//, ""),
         mimetype: file.mimetype,
       }));
@@ -142,7 +142,7 @@ route.post(
     const imgs = req.files.map((file) => ({
       filename: file.filename,
       path:
-        "http://127.0.0.1:3232/" +
+        "https://sarvatrah-backend.onrender.com/public/" +
         file.path.replace(/\\/g, "/").replace("public/", ""),
       mimetype: file.mimetype,
     }));
