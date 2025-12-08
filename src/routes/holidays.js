@@ -3,7 +3,9 @@ const { HolidayPackage } = require("../models/holidaysPackage");
 const upload = require("../utils/file_upload/upload");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const router = express.Router();
-
+const {
+  generateHolidayPackagePdf,
+} = require("../controllers/HolidayPackage/holidayPackage.controller"); 
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const fileData = req.file;
@@ -25,6 +27,9 @@ const {
 app.use("/data", express.static("public/data"));
 const { hotelCollection } = require("../models/hotel");
 const { vehicleCollection } = require("../models/vehicle");
+
+
+route.get("/pdf/:id",generateHolidayPackagePdf);
 
 route.get("/", generalLimiter,async (req, res, next) => {
   res.status(200).json({
@@ -1067,7 +1072,6 @@ route.put("/updatePackage",
   }
 );
  
-
 
 route.put(
   "/package/update/vehicle/:packageId/:vehicleId",

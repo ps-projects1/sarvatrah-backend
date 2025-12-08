@@ -4,6 +4,7 @@ const { getHolidayPackage } = require("./getHolidayPackage");
 const { updateHolidayPackage } = require("./updateHolidayPackage");
 const { holidayPackageDetails } = require("./holidayPackageDetails");
 const { userHolidayPackageList } = require("./userHolidayPackageList");
+const { generateHolidayPackagePdf } = require("./holidayPackagePdf");
 
 module.exports = {
   getHolidayPackage,
@@ -12,4 +13,5 @@ module.exports = {
   updateHolidayPackage,
   holidayPackageDetails,
   userHolidayPackageList,
+  generateHolidayPackagePdf
 };
