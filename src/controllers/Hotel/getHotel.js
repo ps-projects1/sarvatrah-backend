@@ -40,7 +40,12 @@ const getHotel = async (req, res) => {
       const skip = (page - 1) * limit;
 
       [hotelData, total] = await Promise.all([
-        hotelCollection.find(filter).skip(skip).limit(limit),
+        hotelCollection
+          .find(filter)
+          .sort({ createdAt: -1 })   // <-- Correct!
+          .skip(skip)
+          .limit(limit),
+
         hotelCollection.countDocuments(filter)
       ]);
 
