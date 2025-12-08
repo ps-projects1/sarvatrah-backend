@@ -833,13 +833,13 @@ route.post("/createPackage", uploads.fields([
 
     const themeImg = {
       filename: themeFile.filename,
-      path: `http://127.0.0.1:3232/${convertPath(themeFile.path)}`,
+      path: `https://sarvatrah-backend.onrender.com/public${convertPath(themeFile.path)}`,
       mimetype: themeFile.mimetype,
     };
 
     const images = additionalFiles.map((file) => ({
       filename: file.filename,
-      path: `http://127.0.0.1:3232/${convertPath(file.path)}`,
+      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
       mimetype: file.mimetype,
     }));
 
