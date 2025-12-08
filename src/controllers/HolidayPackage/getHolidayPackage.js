@@ -11,14 +11,15 @@ const getHolidayPackage = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Get total count of documents for pagination info
+    // Total documents
     const totalHolidayPackages = await HolidayPackage.countDocuments({});
 
-    // Find holiday packages with pagination
+    // Query holiday packages with pagination + sorting (latest first)
     const holidayPackages = await HolidayPackage.find(
       {},
       "-__v -createdAt -updatedAt"
     )
+      .sort({ _id: -1 })   // ⭐ ensures latest first  
       .skip(skip)
       .limit(limit);
 
@@ -28,15 +29,15 @@ const getHolidayPackage = async (req, res) => {
         .json(generateErrorResponse("Not Found", "No holiday packages found"));
     }
 
-    // Calculate total pages
+    // Total pages
     const totalPages = Math.ceil(totalHolidayPackages / limit);
 
-    // Response data with pagination info
+    // Response with pagination info
     const responseData = {
-      holidayPackages: holidayPackages,
+      holidayPackages,
       pagination: {
         currentPage: page,
-        totalPages: totalPages,
+        totalPages,
         totalItems: totalHolidayPackages,
         itemsPerPage: limit,
         hasNextPage: page < totalPages,
@@ -44,15 +45,13 @@ const getHolidayPackage = async (req, res) => {
       },
     };
 
-    return res
-      .status(200)
-      .json(
-        generateResponse(
-          true,
-          "Holiday packages retrieved successfully",
-          responseData
-        )
-      );
+    return res.status(200).json(
+      generateResponse(
+        true,
+        "Holiday packages retrieved successfully",
+        responseData
+      )
+    );
   } catch (error) {
     console.log("Get Holiday Packages", error);
     return res
