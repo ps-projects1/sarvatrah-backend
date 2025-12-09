@@ -2,10 +2,11 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const User = require("../models/user");
 const Admin = require("../models/admin");
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const authMiddleware = async (req, res, next) => {
-  // Get token from cookie instead of header
+  // Check token from cookie or authorization header
   const token = req.cookies.auth_token || req.headers["authorization"]?.split(" ")[1];
 
   if (!token) {
@@ -19,11 +20,18 @@ const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log("Decoded JWT:", decoded);
-    const userObject = await Admin.findOne({
-      _id: decoded.id,
-      
-    });
 
+    let userObject = null;
+
+    // 1️⃣ Check Admin first
+    userObject = await Admin.findOne({ _id: decoded.id });
+
+    // 2️⃣ If admin not found → check User
+    if (!userObject) {
+      userObject = await User.findOne({ _id: decoded.id });
+    }
+
+    // 3️⃣ Still not found → Unauthorized
     if (!userObject) {
       return res.status(401).json({
         status: false,
@@ -32,8 +40,18 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Check if token has expired (additional safety check)
-    const tokenEntry = userObject.tokens.find((t) => t.token === token);
+    // 4️⃣ Check token entry
+    const tokenEntry = userObject.tokens?.find((t) => t.token === token);
+
+    if (!tokenEntry) {
+      return res.status(401).json({
+        status: false,
+        code: 401,
+        message: "Unauthorized: Token not found",
+      });
+    }
+
+    // 5️⃣ Check token expiration
     if (tokenEntry.expiresAt < new Date()) {
       return res.status(401).json({
         status: false,
@@ -43,10 +61,13 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = userObject;
-    req.token = token; // Attach token to request
+    req.token = token;
+
     next();
   } catch (error) {
-    res.status(401).json({
+    return res.status(401).json({
+      status: false,
+      code: 401,
       message: "Token is not valid",
       error: error.message,
     });

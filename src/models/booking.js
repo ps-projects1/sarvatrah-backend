@@ -11,6 +11,19 @@ const travellerSchema = new Mongoose.Schema({
   dropLocation: { type: String, trim: true },
 });
 
+const hotelDetailsSchema = new Mongoose.Schema({
+  hotelId: { type: Mongoose.Schema.Types.ObjectId, ref: "Hotel" },
+  roomType: { type: String },
+  occupancy: { type: Number }, // 1, 2, 3
+  childWithBed: { type: Boolean, default: false },
+  childWithoutBed: { type: Boolean, default: false },
+  childWithBedPrice: { type: Number, default: 0 },
+  childWithoutBedPrice: { type: Number, default: 0 },
+  perDayRoomPrice: { type: Number, default: 0 }, // occupancy + child price
+  totalHotelCost: { type: Number, default: 0 },
+});
+
+
 const billingSchema = new Mongoose.Schema({
   title: { type: String, trim: true },
   firstName: { type: String, trim: true },
@@ -24,6 +37,16 @@ const billingSchema = new Mongoose.Schema({
   contactNumber: { type: String, trim: true },
   gstNumber: { type: String, trim: true },
 });
+
+const costBreakupSchema = new Mongoose.Schema({
+  days: Number,
+  hotelCost: Number,
+  vehicleCost: Number,
+  priceMarkup: Number,
+  hotelPriceFound: Boolean,
+  vehiclePriceFound: Boolean,
+  finalPackage: Number,
+}, { _id: false });
 
 const bookingSchema = new Mongoose.Schema(
   {
@@ -55,6 +78,9 @@ const bookingSchema = new Mongoose.Schema(
     },
     travellers: [travellerSchema],
     billingInfo: billingSchema,
+    costBreakup: costBreakupSchema,
+    hotelDetails: hotelDetailsSchema,
+
   },
   { timestamps: true }
 );
