@@ -71,7 +71,7 @@ async function seed() {
         mimetype: "image/jpeg",
       },
       selectType: "domestic",
-      uniqueId: "GOA12345",
+      uniqueId: "GOA123456",
       packageType: "family",
       destinationCity: ["Goa"],
       availableVehicle: [

@@ -4,6 +4,7 @@ const { vehicleCollection } = require("../models/vehicle");
 const upload = require("../utils/file_upload/upload");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const jwt = require("jsonwebtoken");
+const uploadToSupabase = require("../utils/uploadToSupabase");
 
 const route = express.Router();
 const { v4: uuidv4 } = require("uuid");
@@ -51,14 +52,23 @@ route.post(
         }
       }
 
-      // Map uploaded images
-      const images = (req.files || []).map((file) => ({
-        filename: file.filename,
-        path:
-          "https://sarvatrah-backend.onrender.com/public/" +
-          file.path.replace(/\\/g, "/").replace(/^public\//, ""),
-        mimetype: file.mimetype,
-      }));
+      // ==============================
+      // 🚀 UPLOAD IMAGES TO SUPABASE
+      // ==============================
+      const images = [];
+      for (const file of (req.files || [])) {
+        const fileUrl = await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "vehicle/gallery"
+        );
+
+        images.push({
+          filename: file.filename,
+          path: fileUrl,        // Supabase URL
+          mimetype: file.mimetype,
+        });
+      }
 
       // Create Vehicle
       const addVehicle = await vehicleCollection.create({
@@ -87,6 +97,7 @@ route.post(
     }
   }
 );
+
 
 // Add category → generalLimiter
 route.post("/categories", generalLimiter, async (req, res) => {
@@ -125,47 +136,64 @@ route.post(
   upload.array("files", 10),
   limitIfFiles(uploadLimiter),
   async (req, res, next) => {
-    const getRoomInfo = req.body.rooms;
-    const rooms = JSON.parse(getRoomInfo);
+    try {
+      const getRoomInfo = req.body.rooms;
+      const rooms = JSON.parse(getRoomInfo);
 
-    const hotelType = req.body.hotelType;
-    const hotelName = req.body.hotelName;
-    const address = req.body.address;
-    const state = req.body.state;
-    const city = req.body.city;
-    const pincode = req.body.pincode;
-    const phoneNumber = req.body.phoneNumber;
-    const email = req.body.email;
-    const contactPerson = req.body.contactPerson;
-    const description = req.body.description;
+      const hotelType = req.body.hotelType;
+      const hotelName = req.body.hotelName;
+      const address = req.body.address;
+      const state = req.body.state;
+      const city = req.body.city;
+      const pincode = req.body.pincode;
+      const phoneNumber = req.body.phoneNumber;
+      const email = req.body.email;
+      const contactPerson = req.body.contactPerson;
+      const description = req.body.description;
 
-    const imgs = req.files.map((file) => ({
-      filename: file.filename,
-      path:
-        "https://sarvatrah-backend.onrender.com/public/" +
-        file.path.replace(/\\/g, "/").replace("public/", ""),
-      mimetype: file.mimetype,
-    }));
+      // ==================================
+      // 🚀 UPLOAD HOTEL IMAGES TO SUPABASE
+      // ==================================
+      const imgs = [];
+      for (const file of (req.files || [])) {
+        const fileUrl = await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "hotel/gallery"
+        );
 
-    const objToBeAdded = {
-      hotelType,
-      hotelName,
-      address,
-      state,
-      city,
-      pincode,
-      phoneNumber,
-      email,
-      contactPerson,
-      description,
-      imgs,
-      rooms,
-    };
+        imgs.push({
+          filename: file.filename,
+          path: fileUrl, // Supabase URL
+          mimetype: file.mimetype,
+        });
+      }
 
-    const hotelObj = await hotelCollection.create(objToBeAdded);
-    return res.status(200).json({ Status: "Hotel uploaded", data: hotelObj });
+      const objToBeAdded = {
+        hotelType,
+        hotelName,
+        address,
+        state,
+        city,
+        pincode,
+        phoneNumber,
+        email,
+        contactPerson,
+        description,
+        imgs,
+        rooms,
+      };
+
+      const hotelObj = await hotelCollection.create(objToBeAdded);
+      return res.status(200).json({ Status: "Hotel uploaded", data: hotelObj });
+
+    } catch (err) {
+      console.error("HOTEL ADD ERROR:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
   }
 );
+
 
 // Get hotel details → generalLimiter
 route.get("/getHotelDetails/:id", generalLimiter, async (req, res) => {

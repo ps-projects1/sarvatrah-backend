@@ -4,6 +4,7 @@ const {
   generateResponse,
 } = require("../../helper/response");
 const Joi = require("joi");
+const uploadToSupabase = require("../../utils/uploadToSupabase");
 
 const addHotel = async (req, res) => {
   try {
@@ -22,11 +23,12 @@ const addHotel = async (req, res) => {
       encryptedRooms,
       defaultSelected,
     } = req.body;
-    
-    if(!defaultSelected)
-    {
+
+    if (!defaultSelected) {
       defaultSelected = false;
     }
+
+    // Joi validation
     const schema = Joi.object({
       defaultSelected: Joi.boolean().truthy("true").falsy("false").required(),
     });
@@ -41,12 +43,12 @@ const addHotel = async (req, res) => {
         );
     }
 
-    // check hotel already exists or not
+    // Check hotel already exists
     const existingHotel = await hotelCollection.findOne({
-      hotelName: hotelName,
-      state: state,
-      city: city,
-      email: email,
+      hotelName,
+      state,
+      city,
+      email,
     });
 
     if (existingHotel) {
@@ -59,34 +61,48 @@ const addHotel = async (req, res) => {
         );
     }
 
+    // Validate defaultSelected (only one per city & state)
     if (value.defaultSelected) {
       const existingDefaultHotel = await hotelCollection.findOne({
-        state: state,
-        city: city,
+        state,
+        city,
         defaultSelected: true,
       });
 
       if (existingDefaultHotel) {
-        return res
-          .status(400)
-          .json(
-            generateErrorResponse(
-              `Cannot set as default. ${existingDefaultHotel.hotelName} is already the default hotel for ${city}, ${state}`
-            )
-          );
+        return res.status(400).json(
+          generateErrorResponse(
+            `Cannot set as default. ${existingDefaultHotel.hotelName} is already the default hotel for ${city}, ${state}`
+          )
+        );
       }
     }
 
+    // Parse rooms
     const rooms = JSON.parse(encryptedRooms);
 
-    const imgs = req.files.map(({ filename, path, mimetype }) => ({
-      filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${path
-        .replace(/\\/g, "/")
-        .replace("public/", "")}`,
-      mimetype,
-    }));
+    // -------------------------------
+    // 🔥 Upload images to Supabase
+    // -------------------------------
+    const imgs = [];
 
+    for (const file of req.files) {
+      const fileUrl = await uploadToSupabase(
+        file.path,           // local file saved by multer
+        file.originalname,    // actual file name
+        "hotels"              // Supabase folder
+      );
+
+      imgs.push({
+        filename: file.originalname,
+        path: fileUrl,
+        mimetype: file.mimetype,
+      });
+    }
+
+    // --------------------------------
+    // CREATE HOTEL
+    // --------------------------------
     const newHotel = await hotelCollection.create({
       hotelType,
       hotelName,
@@ -101,7 +117,7 @@ const addHotel = async (req, res) => {
       imgs,
       rooms,
       active,
-      defaultSelected: defaultSelected || false,
+      defaultSelected: value.defaultSelected || false,
     });
 
     return res
@@ -111,8 +127,11 @@ const addHotel = async (req, res) => {
     console.error("Add hotel API Error:", error);
     return res
       .status(500)
-      .json(generateErrorResponse("Some internal server error", error.message));
+      .json(
+        generateErrorResponse("Some internal server error", error.message)
+      );
   }
 };
+
 
 module.exports = { addHotel };

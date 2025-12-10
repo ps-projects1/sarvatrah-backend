@@ -1,4 +1,5 @@
 const express = require("express");
+const uploadToSupabase = require("../utils/uploadToSupabase");
 const { HolidayPackage } = require("../models/holidaysPackage");
 const upload = require("../utils/file_upload/upload");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
@@ -671,7 +672,7 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
   }
 });
 
-route.post("/package", upload.array("files", 10),limitIfFiles(uploadLimiter), async (req, res, next) => {
+route.post("/package", upload.array("files", 10), limitIfFiles(uploadLimiter), async (req, res, next) => {
   try {
     const packageName = req.body.packageName;
     const packageDuration = JSON.parse(req.body.packageDuration);
@@ -681,23 +682,45 @@ route.post("/package", upload.array("files", 10),limitIfFiles(uploadLimiter), as
     const exclude = req.body.exclude;
     const price = req.body.price;
 
+    // -------------------------------
+    // 1️⃣ Upload theme image
+    // -------------------------------
+    const themeFile = req.files[0];
+    const themeImgUrl = await uploadToSupabase(
+      themeFile.path,
+      themeFile.originalname,
+      "holiday/theme"
+    );
+
     const themeImg = {
-      filename: req.files[0].filename,
-      path:
-        "https://sarvatrah-backend.onrender.com/public/" +
-        path.posix.relative("public", req.files[0].path).replace(/\\/g, "/"),
-      mimetype: req.files[0].mimetype,
+      filename: themeFile.filename,
+      path: themeImgUrl,
+      mimetype: themeFile.mimetype,
     };
 
+    // -------------------------------
+    // 2️⃣ Upload gallery images
+    // -------------------------------
     let subFile = req.files.slice(1);
-    const imgs = subFile.map((file) => ({
-      filename: file.filename,
-      path:
-        "https://sarvatrah-backend.onrender.com/public/" +
-        path.posix.relative("public", file.path).replace(/\\/g, "/"),
-      mimetype: file.mimetype,
-    }));
+    const imgs = [];
 
+    for (const file of subFile) {
+      const fileUrl = await uploadToSupabase(
+        file.path,
+        file.originalname,
+        "holiday/gallery"
+      );
+
+      imgs.push({
+        filename: file.filename,
+        path: fileUrl,
+        mimetype: file.mimetype,
+      });
+    }
+
+    // -------------------------------
+    // 3️⃣ Save to DB
+    // -------------------------------
     let packageObj = await packageCollection.create({
       packageName: packageName,
       packageDuration: packageDuration,
@@ -710,16 +733,20 @@ route.post("/package", upload.array("files", 10),limitIfFiles(uploadLimiter), as
       price: price,
     });
 
-    return res
-      .status(200)
-      .json({ Status: "Package Created", data: packageObj });
+    return res.status(200).json({
+      Status: "Package Created",
+      data: packageObj
+    });
+
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ Status: "Error creating package", error: error.message });
+    return res.status(500).json({
+      Status: "Error creating package",
+      error: error.message,
+    });
   }
 });
+
 
 route.post("/package/itinerary",generalLimiter,async (req, res, next) => {
   const dayCount = req.body.dayCount;
@@ -779,151 +806,167 @@ const uploads = multer({
 });
 
 // Updated route handler
-route.post("/createPackage", uploads.fields([
-  { name: 'themeImage', maxCount: 1 },
-  { name: 'files', maxCount: 10 }
-]), async (req, res) => {
-  try {
-    console.log("Files received:", req.files);
-    console.log("Body received:", req.body);
 
-    const {
-      packageName,
-      selectType,
-      uniqueId,
-      packageType,
-      paymentDueDays,
-      destinationCity,
-      highlights,
-      partialPayment,
-      recommendedPackage,
-      cancellationPolicyType,
-      roomLimit,
-      createPilgrimage,
-      displayHomepage,
-      status,
-      include,
-      exclude,
-      priceMarkup,
-      partialPaymentPercentage,
-      startCity,
-      days,
-      nights,
-      refundablePercentage,
-      refundableDays,
-      inflatedPercentage,
-      active
-    } = req.body;
-
-    // Validate required fields
-    if (!packageName || !uniqueId) {
-      return res.status(400).json({
-        success: false,
-        message: "Package name and unique ID are required"
-      });
-    }
-
-    // File handling
-    const themeFile = req.files?.themeImage?.[0];
-    const additionalFiles = req.files?.files || [];
-
-    if (!themeFile) {
-      return res.status(400).json({
-        success: false,
-        message: "Theme image is required"
-      });
-    }
-
-    const convertPath = (path) => path.replace(/\\/g, "/").replace("public/", "");
-
-    const themeImg = {
-      filename: themeFile.filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`,
-      mimetype: themeFile.mimetype,
-    };
-
-    const images = additionalFiles.map((file) => ({
-      filename: file.filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
-      mimetype: file.mimetype,
-    }));
-
-    // Parse JSON fields with error handling
-    let itinerary = [];
-    let destinationCities = [];
-    let availableVehicles = [];
-
-    try {
-      itinerary = JSON.parse(req.body.itinerary || "[]");
-      destinationCities = JSON.parse(destinationCity || "[]");
-      availableVehicles = JSON.parse(req.body.availableVehicle || "[]");
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid JSON data in itinerary or destinationCity"
-      });
-    }
-
-    // Create package object
-    const packageObj = {
-      packageName,
-      packageDuration: {
-        days: parseInt(days) || 1,
-        nights: parseInt(nights) || 0
-      },
-      themeImg,
-      selectType,
-      uniqueId,
-      packageType,
-      destinationCity: destinationCities,
-      highlights,
-      status: status === "true",
-      createPilgrimage: createPilgrimage === "true",
-      displayHomepage: displayHomepage === "true",
-      partialPayment: partialPayment === "true",
-      recommendedPackage: recommendedPackage === "true",
-      paymentDueDays: parseInt(paymentDueDays) || 0,
-      partialPaymentPercentage: parseFloat(partialPaymentPercentage) || 0,
-      cancellationPolicyType,
-      roomLimit: parseInt(roomLimit) || 1,
-      include,
-      exclude,
-      priceMarkup: parseFloat(priceMarkup) || 0,
-      inflatedPercentage: parseFloat(inflatedPercentage) || 0,
-      refundablePercentage: parseFloat(refundablePercentage) || 0,
-      refundableDays: parseInt(refundableDays) || 0,
-      itinerary,
-      images,
-      availableVehicle: availableVehicles,
-      active: active !== "false",
-      startCity,
-      inventory: 0
-    };
-    console.log(packageObj)
-
-    const createdPackage = await HolidayPackage.create(packageObj);
-    console.log(createdPackage)
-
-    return res.status(200).json({
-      success: true,
-      message: "Package Created Successfully",
-      data: createdPackage
-    });
-
-  } catch (err) {
-    console.error("Error creating package:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: err.message 
-    });
-  }
-});
-
-route.put("/updatePackage",
+route.post(
+  "/createPackage",
   uploads.fields([
-    { name: 'themeImage', maxCount: 1 },
-    { name: 'files', maxCount: 10 }
+    { name: "themeImage", maxCount: 1 },
+    { name: "files", maxCount: 10 }
+  ]),
+  async (req, res) => {
+    try {
+      console.log("Files received:", req.files);
+      console.log("Body received:", req.body);
+
+      const {
+        packageName,
+        selectType,
+        uniqueId,
+        packageType,
+        paymentDueDays,
+        destinationCity,
+        highlights,
+        partialPayment,
+        recommendedPackage,
+        cancellationPolicyType,
+        roomLimit,
+        createPilgrimage,
+        displayHomepage,
+        status,
+        include,
+        exclude,
+        priceMarkup,
+        partialPaymentPercentage,
+        startCity,
+        days,
+        nights,
+        refundablePercentage,
+        refundableDays,
+        inflatedPercentage,
+        active
+      } = req.body;
+
+      if (!packageName || !uniqueId) {
+        return res.status(400).json({
+          success: false,
+          message: "Package name and unique ID are required"
+        });
+      }
+
+      // ===== FILE HANDLING WITH SUPABASE =====
+      const themeFile = req.files?.themeImage?.[0];
+      const additionalFiles = req.files?.files || [];
+
+      if (!themeFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Theme image is required"
+        });
+      }
+
+      // Upload theme image to Supabase
+      const themeImgUrl = await uploadToSupabase(
+        themeFile.path,
+        themeFile.originalname,
+        "holiday/theme"
+      );
+
+      const themeImg = {
+        filename: themeFile.filename,
+        path: themeImgUrl, // replace local path with Supabase URL
+        mimetype: themeFile.mimetype
+      };
+
+      // Upload additional files to Supabase
+      const images = [];
+      for (const file of additionalFiles) {
+        const fileUrl = await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "holiday/gallery"
+        );
+        images.push({
+          filename: file.filename,
+          path: fileUrl, // replace local path with Supabase URL
+          mimetype: file.mimetype
+        });
+      }
+
+      // ===== PARSE JSON FIELDS =====
+      let itinerary = [];
+      let destinationCities = [];
+      let availableVehicles = [];
+
+      try {
+        itinerary = JSON.parse(req.body.itinerary || "[]");
+        destinationCities = JSON.parse(destinationCity || "[]");
+        availableVehicles = JSON.parse(req.body.availableVehicle || "[]");
+      } catch (err) {
+        console.error("JSON parse error:", err);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON data in itinerary or destinationCity"
+        });
+      }
+
+      // ===== CREATE PACKAGE OBJECT =====
+      const packageObj = {
+        packageName,
+        packageDuration: {
+          days: parseInt(days) || 1,
+          nights: parseInt(nights) || 0
+        },
+        themeImg,
+        selectType,
+        uniqueId,
+        packageType,
+        destinationCity: destinationCities,
+        highlights,
+        status: status === "true",
+        createPilgrimage: createPilgrimage === "true",
+        displayHomepage: displayHomepage === "true",
+        partialPayment: partialPayment === "true",
+        recommendedPackage: recommendedPackage === "true",
+        paymentDueDays: parseInt(paymentDueDays) || 0,
+        partialPaymentPercentage: parseFloat(partialPaymentPercentage) || 0,
+        cancellationPolicyType,
+        roomLimit: parseInt(roomLimit) || 1,
+        include,
+        exclude,
+        priceMarkup: parseFloat(priceMarkup) || 0,
+        inflatedPercentage: parseFloat(inflatedPercentage) || 0,
+        refundablePercentage: parseFloat(refundablePercentage) || 0,
+        refundableDays: parseInt(refundableDays) || 0,
+        itinerary,
+        images,
+        availableVehicle: availableVehicles,
+        active: active !== "false",
+        startCity,
+        inventory: 0
+      };
+
+      const createdPackage = await HolidayPackage.create(packageObj);
+
+      return res.status(200).json({
+        success: true,
+        message: "Package Created Successfully",
+        data: createdPackage
+      });
+
+    } catch (err) {
+      console.error("Error creating package:", err);
+      return res.status(500).json({
+        success: false,
+        message: err.message
+      });
+    }
+  }
+);
+route.put(
+  "/updatePackage",
+  uploads.fields([
+    { name: "themeImage", maxCount: 1 },
+    { name: "files", maxCount: 10 },
   ]),
   async (req, res) => {
     try {
@@ -956,13 +999,13 @@ route.put("/updatePackage",
         refundablePercentage,
         refundableDays,
         inflatedPercentage,
-        active
+        active,
       } = req.body;
 
       if (!_id) {
         return res.status(400).json({
           success: false,
-          message: "_id is required for update"
+          message: "_id is required for update",
         });
       }
 
@@ -970,38 +1013,47 @@ route.put("/updatePackage",
       if (!packageObj) {
         return res.status(404).json({
           success: false,
-          message: "Package not found"
+          message: "Package not found",
         });
       }
 
-      // Handle uploaded files
+      // ===== HANDLE FILES WITH SUPABASE =====
       const themeFile = req.files?.themeImage?.[0];
       const additionalFiles = req.files?.files || [];
 
-      const convertPath = (path) =>
-        path.replace(/\\/g, "/").replace("public/", "");
-
-      // Update theme image ONLY if new file uploaded
       if (themeFile) {
+        const themeImgUrl = await uploadToSupabase(
+          themeFile.path,
+          themeFile.originalname,
+          "holiday/theme"
+        );
+
         packageObj.themeImg = {
           filename: themeFile.filename,
-          path: `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`,
+          path: themeImgUrl,
           mimetype: themeFile.mimetype,
         };
       }
 
-      // Add any newly uploaded additional images
-      const newImages = additionalFiles.map((file) => ({
-        filename: file.filename,
-        path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
-        mimetype: file.mimetype,
-      }));
-
-      if (newImages.length > 0) {
-        packageObj.images = [...packageObj.images, ...newImages];
+      const images = [];
+      for (const file of additionalFiles) {
+        const fileUrl = await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "holiday/gallery"
+        );
+        images.push({
+          filename: file.filename,
+          path: fileUrl,
+          mimetype: file.mimetype,
+        });
       }
 
-      // Parse JSON fields
+      if (images.length > 0) {
+        packageObj.images = [...packageObj.images, ...images];
+      }
+
+      // ===== PARSE JSON FIELDS =====
       let itinerary = [];
       let destinationCities = [];
       let availableVehicles = [];
@@ -1013,16 +1065,17 @@ route.put("/updatePackage",
       } catch (err) {
         return res.status(400).json({
           success: false,
-          message: "Invalid JSON format in fields"
+          message: "Invalid JSON format in fields",
         });
       }
 
-      // Update fields
+      // ===== UPDATE PACKAGE FIELDS =====
       packageObj.packageName = packageName || packageObj.packageName;
       packageObj.selectType = selectType || packageObj.selectType;
       packageObj.uniqueId = uniqueId || packageObj.uniqueId;
       packageObj.packageType = packageType || packageObj.packageType;
-      packageObj.destinationCity = destinationCities.length ? destinationCities : packageObj.destinationCity;
+      packageObj.destinationCity =
+        destinationCities.length > 0 ? destinationCities : packageObj.destinationCity;
       packageObj.highlights = highlights || packageObj.highlights;
       packageObj.status = status === "true";
       packageObj.createPilgrimage = createPilgrimage === "true";
@@ -1031,7 +1084,8 @@ route.put("/updatePackage",
       packageObj.partialPayment = partialPayment === "true";
       packageObj.paymentDueDays = parseInt(paymentDueDays) || 0;
       packageObj.partialPaymentPercentage = parseFloat(partialPaymentPercentage) || 0;
-      packageObj.cancellationPolicyType = cancellationPolicyType || packageObj.cancellationPolicyType;
+      packageObj.cancellationPolicyType =
+        cancellationPolicyType || packageObj.cancellationPolicyType;
       packageObj.roomLimit = parseInt(roomLimit) || packageObj.roomLimit;
       packageObj.include = include || packageObj.include;
       packageObj.exclude = exclude || packageObj.exclude;
@@ -1046,7 +1100,7 @@ route.put("/updatePackage",
       // Update duration
       packageObj.packageDuration = {
         days: parseInt(days) || packageObj.packageDuration.days,
-        nights: parseInt(nights) || packageObj.packageDuration.nights
+        nights: parseInt(nights) || packageObj.packageDuration.nights,
       };
 
       // Update itinerary
@@ -1059,18 +1113,18 @@ route.put("/updatePackage",
       return res.status(200).json({
         success: true,
         message: "Package updated successfully",
-        data: updated
+        data: updated,
       });
-
     } catch (err) {
       console.error("UPDATE ERROR:", err);
       return res.status(500).json({
         success: false,
-        message: err.message
+        message: err.message,
       });
     }
   }
 );
+
  
 
 route.put(

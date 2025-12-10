@@ -5,8 +5,9 @@ const mongoose = require("mongoose");
 const pricingModel = require("../models/pricing.model");
 const timeAvailabilityModel = require("../models/timing_availablity.model");
 const eventCalenderModel = require("../models/experienceEvent.model");
+const uploadToSupabase = require("../utils/uploadToSupabase");
 const { path } = require("../../app");
-/**
+/** 
  * Creates an initial experience.
  *
  * @param {Object} req - The request object.
@@ -44,60 +45,77 @@ const updateExperience = async (req, res) => {
   }
 
   const body = req.body;
-  const files = req.files;
+  const files = req.files || [];
+
   console.log(body, "body");
   console.log(files, "files");
 
-  const nullOrNotPresentKeys = Object.keys(body).filter(
+  const nonNullKeys = Object.keys(body).filter(
     (key) => body[key] !== null && body[key] !== undefined
   );
 
-  if (nullOrNotPresentKeys.length === 0 && files.length === 0) {
+  if (nonNullKeys.length === 0 && files.length === 0) {
     return res.status(400).json({ error: "No data to update" });
   }
 
-  console.log(nullOrNotPresentKeys, "nullOrNotPresentKeys");
-
   const updatedDetails = {};
 
-  nullOrNotPresentKeys.forEach((key) => {
+  // Handle all non-null fields
+  nonNullKeys.forEach((key) => {
     if (key === "category_theme") {
       updatedDetails[key] = {
-        category: Array.isArray(body[key].category) ? body[key].category : [body[key].category],
-        theme: Array.isArray(body[key].theme) ? body[key].theme : [body[key].theme],
+        category: Array.isArray(body[key].category)
+          ? body[key].category
+          : [body[key].category],
+        theme: Array.isArray(body[key].theme)
+          ? body[key].theme
+          : [body[key].theme],
       };
     } else {
       updatedDetails[key] = body[key];
     }
   });
 
-  if (files?.length > 0) {
-    updatedDetails.img_link = files.map((file) => ({
-      filename: file.originalname,
-      path: file.path,
-      mimetype: file.mimetype,
-    }));
+  // Handle file uploads with Supabase
+  if (files.length > 0) {
+    const uploadedFiles = [];
+
+    for (const file of files) {
+      try {
+        const fileUrl = await uploadToSupabase(file.path, file.originalname, "experience");
+        uploadedFiles.push({
+          filename: file.originalname,
+          path: fileUrl,
+          mimetype: file.mimetype,
+        });
+      } catch (err) {
+        console.error("Supabase upload failed for file:", file.originalname, err);
+      }
+    }
+
+    if (uploadedFiles.length > 0) {
+      updatedDetails.img_link = uploadedFiles;
+    }
   }
 
-  const keys = Object.keys(updatedDetails);
-  console.log(keys, "keys");
-
-  if (keys.length === 0) {
-    return res.status(400).json({ error: "No data to update" });
+  if (Object.keys(updatedDetails).length === 0) {
+    return res.status(400).json({ error: "No valid data to update" });
   }
 
   try {
     const experience = await experienceModel.findByIdAndUpdate(
       id,
-      { ...updatedDetails },
+      { $set: updatedDetails },
       { new: true }
     );
 
     return res.status(200).json(experience);
   } catch (error) {
+    console.error("Update Experience Error:", error);
     return res.status(500).json({ error: error.message });
   }
 };
+
 
 
 

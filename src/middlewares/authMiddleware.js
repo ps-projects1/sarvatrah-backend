@@ -19,7 +19,7 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log("Decoded JWT:", decoded);
+
 
     let userObject = null;
 

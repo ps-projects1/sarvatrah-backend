@@ -7,7 +7,7 @@ const { sendEmail } = require("../../helper/sendMail");
 const Joi = require("joi");
 const fs = require("fs");
 const path = require("path");
-
+const uploadToSupabase = require("../../utils/uploadToSupabase");
 const updateHotel = async (req, res) => {
   try {
     const {
@@ -32,29 +32,7 @@ const updateHotel = async (req, res) => {
     const schema = Joi.object({
       defaultSelected: Joi.boolean().truthy("true").falsy("false").required(),
     });
-
     const { error, value } = schema.validate({ defaultSelected });
-
-    if (removedImages) {
-      // check file exists or not
-      for (const img of JSON.parse(removedImages || "[]")) {
-        let imgPath = img.split("/");
-        const filePath = path.join(
-          __dirname,
-          `../../../public/${imgPath[0]}/${imgPath[1]}/${imgPath[2]}`
-        );
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath,(err)=>{
-            console.log("File remove error >> ",err);
-          });
-        }
-
-        const removeImageFromDB = await hotelCollection.updateOne(
-          { _id },
-          { $pull: { imgs: { filename: imgPath } } }
-        );
-      }
-    }
 
     if (error) {
       return res
@@ -72,10 +50,10 @@ const updateHotel = async (req, res) => {
 
     // check if hotel with same name, state, city, and email already exists
     const existingHotel = await hotelCollection.findOne({
-      hotelName: hotelName,
-      state: state,
-      city: city,
-      email: email,
+      hotelName,
+      state,
+      city,
+      email,
       _id: { $ne: _id }, // Exclude current hotel
     });
 
@@ -92,8 +70,8 @@ const updateHotel = async (req, res) => {
     // check defaultSelected
     if (value.defaultSelected) {
       const existingDefaultHotel = await hotelCollection.findOne({
-        state: state,
-        city: city,
+        state,
+        city,
         defaultSelected: true,
         _id: { $ne: _id },
       });
@@ -111,16 +89,34 @@ const updateHotel = async (req, res) => {
 
     const rooms = encryptedRooms ? JSON.parse(encryptedRooms) : undefined;
 
-    let imgs = prevHotel.imgs || []; // existing array
+    // Handle removed images (delete from DB)
+    if (removedImages) {
+      const removedArray = JSON.parse(removedImages || "[]");
+      await hotelCollection.updateOne(
+        { _id },
+        { $pull: { imgs: { filename: { $in: removedArray } } } }
+      );
+    }
 
+    let imgs = prevHotel.imgs || [];
+
+    // -------------------------------
+    // 🔥 Upload new images to Supabase
+    // -------------------------------
     if (req.files && req.files.length > 0) {
-      const newImgs = req.files.map(({ filename, path, mimetype }) => ({
-        filename,
-        path: `https://sarvatrah-backend.onrender.com/public/${path
-          .replace(/\\/g, "/")
-          .replace("public/", "")}`,
-        mimetype,
-      }));
+      const newImgs = [];
+      for (const file of req.files) {
+        const fileUrl = await uploadToSupabase(
+          file.path,           // local multer file
+          file.originalname,    // original filename
+          "hotels"              // folder in Supabase
+        );
+        newImgs.push({
+          filename: file.originalname,
+          path: fileUrl,
+          mimetype: file.mimetype,
+        });
+      }
       imgs.push(...newImgs);
     }
 
@@ -135,7 +131,7 @@ const updateHotel = async (req, res) => {
       email,
       contactPerson,
       descriptions,
-      defaultSelected,
+      defaultSelected: value.defaultSelected,
       active,
       ...(rooms && { rooms }),
       ...(imgs && { imgs }),
@@ -156,7 +152,7 @@ const updateHotel = async (req, res) => {
 
     // Send email if status changed
     if (activeChanged) {
-      const sender = req.user?.email || "Unknown User"; // assuming auth middleware sets req.user
+      const sender = req.user?.email || "Unknown User";
       const action = active ? "Activated" : "Deactivated";
 
       const html = `
@@ -184,17 +180,7 @@ const updateHotel = async (req, res) => {
         subject: `Hotel ${action}: ${hotelName}`,
         text: `Hotel ${hotelName} has been ${action} by ${sender}.`,
         html,
-      })
-        .then((data) => {
-          if (!data.success) {
-            console.error("Failed to send email:", data.message);
-          } else {
-            console.log("Email sent successfully:", data.messageId);
-          }
-        })
-        .catch((error) => {
-          console.error("Error sending email:", error);
-        });
+      }).catch((error) => console.error("Error sending email:", error));
     }
 
     return res.status(200).json(
@@ -210,5 +196,6 @@ const updateHotel = async (req, res) => {
       .json(generateErrorResponse("Some internal server error", error.message));
   }
 };
+
 
 module.exports = { updateHotel };

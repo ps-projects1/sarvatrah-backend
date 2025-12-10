@@ -5,7 +5,7 @@ const activityModel = require("../models/activities");
 const { hotelCollection } = require("../models/hotel");
 const { vehicleCollection } = require("../models/vehicle");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
-
+const uploadToSupabase = require("../utils/uploadToSupabase");
 
 route.get("/",generalLimiter, async (req, res, next) => {
   const id = req.query.id;
@@ -40,32 +40,97 @@ route.get("/",generalLimiter, async (req, res, next) => {
 route.get("/lists",generalLimiter, async (req, res, next) => {
   const person = req.query.counts;
 });
-route.post("/", upload.single("file"), async (req, res, next) => {
-  const packageType = req.query.packageType;
-  const activityName = req.query.activityName;
-  const activityPlace = req.query.activityPlace;
-  const targetPlaces = JSON.parse(req.query.targetPlaces);
-  const duration = req.query.duration;
-  const placeCover = req.query.placeCover;
-  const price = req.query.price;
-  const description = req.query.description;
-  const img = {
-    filename: req.file.filename,
-    path: "https://sarvatrah-backend.onrender.com/public/" + req.file.path.replace("public/", ""),
-    mimetype: req.file.mimetype,
-  };
-  await activityModel.create({
-    packageType: packageType,
-    activityName: activityName,
-    activityPlace: activityPlace,
-    targetPlaces: targetPlaces,
-    duration: duration,
-    placeCover: placeCover,
-    price: price,
-    description: description,
-    img: img,
-  });
-  res.status(200).json({ message: "activity created" });
-});
+route.post(
+  "/",
+  upload.fields([{ name: "file", maxCount: 1 }]),
+  limitIfFiles(uploadLimiter),
+  async (req, res, next) => {
+    try {
+      // Extracting data from query parameters
+      const {
+        packageName,
+        packageDuration,
+        availableVehicle,
+        groupSize,
+        include,
+        exclude,
+        startLocation,
+        activityLocation,
+        discount,
+        price,
+        overview,
+        availableLanguage,
+        cancellationPolicy,
+        highlight,
+        mapLink,
+        unEligibility,
+        availableSlot,
+        pickUpAndDrop,
+        pickUpOnly,
+        dropOnly,
+        pickUpLocation,
+        dropLocation,
+        ageTypes,
+        age,
+      } = req.query;
+
+      // -----------------------------
+      // 🔥 Upload File to Supabase
+      // -----------------------------
+      const fileObj = req.files.file?.[0];
+      if (!fileObj) {
+        return res.status(400).json({ error: "File is required" });
+      }
+
+      const supabaseUrl = await uploadToSupabase(
+        fileObj.path,          // localFilePath
+        fileObj.originalname,  // originalName
+        "activities"           // folder name
+      );
+
+      const themeImg = {
+        filename: fileObj.originalname,
+        path: supabaseUrl,
+        mimetype: fileObj.mimetype,
+      };
+
+      // -----------------------------
+      // CREATE ACTIVITY
+      // -----------------------------
+      await activityCollection.create({
+        packageName,
+        packageDuration,
+        themeImg,
+        availableVehicle: JSON.parse(availableVehicle),
+        groupSize,
+        include: JSON.parse(include),
+        exclude: JSON.parse(exclude),
+        startLocation,
+        activityLocation,
+        discount,
+        price,
+        overview,
+        availableLanguage: JSON.parse(availableLanguage),
+        cancellationPolicy,
+        highlight,
+        mapLink,
+        unEligibility: JSON.parse(unEligibility),
+        availableSlot,
+        pickUpAndDrop: Boolean(pickUpAndDrop),
+        pickUpOnly: Boolean(pickUpOnly),
+        dropOnly: Boolean(dropOnly),
+        pickUpLocation,
+        dropLocation,
+        age,
+      });
+
+      res.status(201).json({ status: "created" });
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+);
+
 
 module.exports = route;

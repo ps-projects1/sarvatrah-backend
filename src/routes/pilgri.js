@@ -4,7 +4,7 @@ const upload = require("../utils/file_upload/upload");
 const route = express.Router();
 const jwt = require("jsonwebtoken");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
-
+const uploadToSupabase = require("../utils/uploadToSupabase");
 route.get("/",generalLimiter, async (req, res, next) => {
   res.status(200).json({
     message: "pilgri package homepage",
@@ -63,41 +63,78 @@ route.post(
   upload.fields([
     { name: "file", maxCount: 1 },
     { name: "subfile", maxCount: 10 },
-  ]),limitIfFiles(uploadLimiter),
+  ]),
+  limitIfFiles(uploadLimiter),
   async (req, res, next) => {
-    const packageName = req.query.packageName;
-    const packageDuration = JSON.parse(req.query.packageDuration);
-    const availableVehicle = JSON.parse(req.query.availableVehicle);
-    const roomLimit = req.query.roomLimit;
-    const include = req.query.include;
-    const exclude = req.query.exclude;
-    const themeImg = {
-      filename: req.files.file[0].filename,
-      path:
-        "https://sarvatrah-backend.onrender.com/public/" +
-        req.files.file[0].path.replace("public/", ""),
-      mimetype: req.files.file[0].mimetype,
-    };
-    const imgs = req.files.subfile.map((file) => {
-      return {
-        filename: file.filename,
-        path: "https://sarvatrah-backend.onrender.com/public/" + file.path.replace("public/", ""),
-        mimetype: file.mimetype,
+    try {
+      const packageName = req.query.packageName;
+      const packageDuration = JSON.parse(req.query.packageDuration);
+      const availableVehicle = JSON.parse(req.query.availableVehicle);
+      const roomLimit = req.query.roomLimit;
+      const include = req.query.include;
+      const exclude = req.query.exclude;
+
+      // ---------------------------------------------------
+      // 1️⃣ Upload theme image to SUPABASE
+      // ---------------------------------------------------
+      const themeFile = req.files.file[0];
+
+      const themeImgUrl = await uploadToSupabase(
+        themeFile.path,            // local file path saved by multer
+        themeFile.originalname,    // original file name
+        "holiday/theme"            // folder in bucket
+      );
+
+      const themeImg = {
+        filename: themeFile.filename,
+        path: themeImgUrl,         // Supabase URL
+        mimetype: themeFile.mimetype,
       };
-    });
-    await packageCollection.create({
-      packageName: packageName,
-      packageDuration: packageDuration,
-      availableVehicle: availableVehicle,
-      roomLimit: roomLimit,
-      include: include,
-      exclude: exclude,
-      themeImg: themeImg,
-      imgs: imgs,
-    });
-    return res.status(200).json({ Status: "Package Created" });
+
+      // ---------------------------------------------------
+      // 2️⃣ Upload gallery images to SUPABASE
+      // ---------------------------------------------------
+      const imgs = [];
+      for (const file of req.files.subfile) {
+        const imgUrl = await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "holiday/gallery"
+        );
+
+        imgs.push({
+          filename: file.filename,
+          path: imgUrl,            // Supabase URL
+          mimetype: file.mimetype,
+        });
+      }
+
+      // ---------------------------------------------------
+      // 3️⃣ Save to database
+      // ---------------------------------------------------
+      await packageCollection.create({
+        packageName: packageName,
+        packageDuration: packageDuration,
+        availableVehicle: availableVehicle,
+        roomLimit: roomLimit,
+        include: include,
+        exclude: exclude,
+        themeImg: themeImg,
+        imgs: imgs,
+      });
+
+      return res.status(200).json({ Status: "Package Created" });
+
+    } catch (err) {
+      console.error("PACKAGE CREATE ERROR:", err);
+      return res.status(500).json({
+        Status: "Error creating package",
+        error: err.message,
+      });
+    }
   }
 );
+
 
 route.post("/package/itinerary",generalLimiter, async (req, res, next) => {
   const dayCount = req.query.dayCount;
