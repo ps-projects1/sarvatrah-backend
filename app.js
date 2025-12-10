@@ -147,7 +147,7 @@ app.use((error, req, res, next) => {
   res.status(error.status || 500).json({ message: { error: error.message } });
 });
 
-console.log('\n📍 ===== ALL API ENDPOINTS =====\n');
+console.log('\n ===== ALL API ENDPOINTS =====\n');
 const endpoints = listEndpoints(app);
 endpoints.forEach(endpoint => {
   const methods = endpoint.methods.join(', ');

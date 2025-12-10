@@ -2,20 +2,18 @@ const express = require("express");
 const route = express.Router();
 const advantureCollection = require("../models/advanture");
 const upload = require("../utils/file_upload/upload");
-
+const uploadToSupabase = require("../utils/uploadToSupabase");
 route.post(
   "/",
   upload.fields([{ name: "file", maxCount: 1 }]),
   async (req, res, next) => {
     console.log("Adventure creation endpoint hit");
-    
+
     try {
-      // Check if file exists
       if (!req.files || !req.files.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      // Use req.body for FormData
       const {
         packageName,
         packageDuration,
@@ -44,54 +42,52 @@ route.post(
         endpoint,
       } = req.body;
 
-      console.log('Received data for adventure creation');
+      console.log("Received data for adventure creation");
 
-      // Extracting file information
+      // -------------------------------
+      // 🔥 Upload theme image to Supabase
+      // -------------------------------
+      const themeFile = req.files.file[0];
+      const themeImgUrl = await uploadToSupabase(themeFile.path, themeFile.originalname, "adventure/theme");
+
       const themeImg = {
-        filename: req.files.file[0].filename,
-        path:
-          "https://sarvatrah-backend.onrender.com/public/" +
-          req.files.file[0].path
-            .replace("public\\", "")
-            .replace(/\\/g, "/")
-            .replace(/\//g, "/"),
-        mimetype: req.files.file[0].mimetype,
+        filename: themeFile.originalname,
+        path: themeImgUrl,
+        mimetype: themeFile.mimetype,
       };
 
-      // Helper function to parse JSON strings
       const parseIfString = (data) => {
-        if (typeof data === 'string') {
+        if (typeof data === "string") {
           try {
             return JSON.parse(data);
           } catch (error) {
-            console.error('Error parsing JSON:', error);
+            console.error("Error parsing JSON:", error);
             return data;
           }
         }
         return data;
       };
 
-      // Parse age from string to number for unEligibility
       const parsedUnEligibility = parseIfString(unEligibility);
       if (parsedUnEligibility && parsedUnEligibility.age) {
-        parsedUnEligibility.age = parsedUnEligibility.age.map(a => parseInt(a)).filter(a => !isNaN(a));
+        parsedUnEligibility.age = parsedUnEligibility.age
+          .map((a) => parseInt(a))
+          .filter((a) => !isNaN(a));
       }
 
-      // Parse vehicle prices to numbers
       const parsedVehicles = parseIfString(availableVehicle);
       if (Array.isArray(parsedVehicles)) {
-        parsedVehicles.forEach(vehicle => {
+        parsedVehicles.forEach((vehicle) => {
           if (vehicle.price) {
             vehicle.price = parseInt(vehicle.price) || 0;
           }
         });
       }
 
-      // Create adventure data according to schema
       const adventureData = {
         packageName,
         packageDuration,
-        themeImg: { ...themeImg, path: themeImg.path.replace(/\\/g, "/") },
+        themeImg,
         availableVehicle: parsedVehicles,
         groupSize: parseInt(groupSize) || 0,
         include: parseIfString(include) || [],
@@ -107,43 +103,35 @@ route.post(
         mapLink,
         unEligibility: parsedUnEligibility || { age: [], diseases: [] },
         availableSlot: parseInt(availableSlot) || 0,
-        pickUpAndDrop: pickUpAndDrop === 'true' || pickUpAndDrop === true,
-        pickUpOnly: pickUpOnly === 'true' || pickUpOnly === true,
-        dropOnly: dropOnly === 'true' || dropOnly === true,
+        pickUpAndDrop: pickUpAndDrop === "true" || pickUpAndDrop === true,
+        pickUpOnly: pickUpOnly === "true" || pickUpOnly === true,
+        dropOnly: dropOnly === "true" || dropOnly === true,
         pickUpLocation,
         dropLocation,
-        ageTypes: parseIfString(ageTypes) || {
-          adult: false,
-          children: false,
-          senior: false,
-        },
-        age: parseIfString(age) || {
-          adult: "",
-          children: "",
-          senior: "",
-        },
+        ageTypes: parseIfString(ageTypes) || { adult: false, children: false, senior: false },
+        age: parseIfString(age) || { adult: "", children: "", senior: "" },
         endpoint: endpoint || "",
-        objectType: "advanture" // This is default in schema but including for clarity
+        objectType: "advanture",
       };
 
-      console.log('Creating adventure with data:', adventureData);
+      console.log("Creating adventure with data:", adventureData);
 
-      // Creating activity
       await advantureCollection.create(adventureData);
 
-      res.status(201).json({ 
+      res.status(201).json({
         status: "created",
-        message: "Adventure created successfully"
+        message: "Adventure created successfully",
       });
     } catch (error) {
       console.error("Error:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Internal Server Error",
-        details: error.message 
+        details: error.message,
       });
     }
   }
 );
+
 
 // Keep your existing GET routes
 route.get("/", async (req, res, next) => {
