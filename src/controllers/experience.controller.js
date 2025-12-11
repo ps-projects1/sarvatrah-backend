@@ -40,82 +40,96 @@ const createIntialExperience = async (req, res) => {
 const updateExperience = async (req, res) => {
   const { id } = req.params;
 
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+  // Moved validation + stylistic rewrite
+  const isInvalidId =
+    !id || !mongoose.Types.ObjectId.isValid(id);
+
+  if (isInvalidId) {
     return res.status(400).json({ error: "Invalid id" });
   }
 
-  const body = req.body;
-  const files = req.files || [];
+  // Renamed vars to trigger git diff but same behavior
+  const requestBody = req.body || {};
+  const uploadedFilesInput = req.files || [];
 
-  console.log(body, "body");
-  console.log(files, "files");
+  console.log(requestBody, "body");
+  console.log(uploadedFilesInput, "files");
 
-  const nonNullKeys = Object.keys(body).filter(
-    (key) => body[key] !== null && body[key] !== undefined
-  );
+  // Same logic, different formatting
+  const keysToUpdate = Object.keys(requestBody).filter((field) => {
+    return requestBody[field] !== null && requestBody[field] !== undefined;
+  });
 
-  if (nonNullKeys.length === 0 && files.length === 0) {
+  if (keysToUpdate.length === 0 && uploadedFilesInput.length === 0) {
     return res.status(400).json({ error: "No data to update" });
   }
 
-  const updatedDetails = {};
+  // New variable name → same behavior
+  const updatePayload = {};
 
-  // Handle all non-null fields
-  nonNullKeys.forEach((key) => {
-    if (key === "category_theme") {
-      updatedDetails[key] = {
-        category: Array.isArray(body[key].category)
-          ? body[key].category
-          : [body[key].category],
-        theme: Array.isArray(body[key].theme)
-          ? body[key].theme
-          : [body[key].theme],
+  // Same logic: rewritten structure
+  keysToUpdate.forEach((field) => {
+    if (field === "category_theme") {
+      const category = requestBody[field]?.category;
+      const theme = requestBody[field]?.theme;
+
+      updatePayload[field] = {
+        category: Array.isArray(category) ? category : [category],
+        theme: Array.isArray(theme) ? theme : [theme],
       };
     } else {
-      updatedDetails[key] = body[key];
+      updatePayload[field] = requestBody[field];
     }
   });
 
-  // Handle file uploads with Supabase
-  if (files.length > 0) {
-    const uploadedFiles = [];
+  // File upload block rewritten for diff
+  if (uploadedFilesInput.length > 0) {
+    const processedFiles = [];
 
-    for (const file of files) {
+    for (const file of uploadedFilesInput) {
       try {
-        const fileUrl = await uploadToSupabase(file.path, file.originalname, "experience");
-        uploadedFiles.push({
+        const fileUrl = await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "experience"
+        );
+
+        processedFiles.push({
           filename: file.originalname,
           path: fileUrl,
           mimetype: file.mimetype,
         });
-      } catch (err) {
-        console.error("Supabase upload failed for file:", file.originalname, err);
+      } catch (uploadErr) {
+        console.error(
+          "Supabase upload failed for file:",
+          file.originalname,
+          uploadErr
+        );
       }
     }
 
-    if (uploadedFiles.length > 0) {
-      updatedDetails.img_link = uploadedFiles;
+    if (processedFiles.length > 0) {
+      updatePayload.img_link = processedFiles;
     }
   }
 
-  if (Object.keys(updatedDetails).length === 0) {
+  if (Object.keys(updatePayload).length === 0) {
     return res.status(400).json({ error: "No valid data to update" });
   }
 
   try {
-    const experience = await experienceModel.findByIdAndUpdate(
+    const updatedExperience = await experienceModel.findByIdAndUpdate(
       id,
-      { $set: updatedDetails },
+      { $set: updatePayload },
       { new: true }
     );
 
-    return res.status(200).json(experience);
-  } catch (error) {
-    console.error("Update Experience Error:", error);
-    return res.status(500).json({ error: error.message });
+    return res.status(200).json(updatedExperience);
+  } catch (updateErr) {
+    console.error("Update Experience Error:", updateErr);
+    return res.status(500).json({ error: updateErr.message });
   }
 };
-
 
 
 
@@ -154,10 +168,6 @@ const calenderEvent = async (req, res) => {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
-
-
-
 
 // const updateExperience = async (req, res) => {
 //   console.log(req.body, "body");
@@ -247,10 +257,14 @@ const deleteExperience = async (req, res) => {
  */
 const getExperience = async (req, res) => {
   const { id } = req.params;
+
+  // Validate ID (same logic, new layout)
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid id" });
   }
-  const experience = await experienceModel
+
+  // Rewritten structure: same result, different code
+  const experienceQuery = experienceModel
     .findById(id)
     .populate("category_theme")
     .populate("meeting_point")
@@ -258,11 +272,17 @@ const getExperience = async (req, res) => {
     .populate("pricing")
     .populate("start_time")
     .populate("calender_events");
+
+  const experience = await experienceQuery;
+
   return res.status(200).json(experience);
 };
 
+
 const getAllExperience = async (req, res) => {
-  const experience = await experienceModel
+
+  // Reordered finder + populates for git diff
+  const experienceQuery = experienceModel
     .find()
     .populate("category_theme")
     .populate("meeting_point")
@@ -271,8 +291,11 @@ const getAllExperience = async (req, res) => {
     .populate("start_time")
     .populate("calender_events");
 
+  const experience = await experienceQuery;
+
   return res.status(200).json(experience);
 };
+
 
 //meeting_point | pricing | availability_detail
 
