@@ -1,4 +1,4 @@
-require("dotenv").config();
+ require("dotenv").config();
 const mongoose = require("mongoose");
 
 const dbConnection = async () => {
@@ -17,3 +17,18 @@ const dbConnection = async () => {
 // mongodb+srv://sarvatrah23:Sarvatrah%402023@sarvatrah.2xrxc8c.mongodb.net/sarvatrah
 
 module.exports = dbConnection;
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -12,7 +12,7 @@ const travellerSchema = new Mongoose.Schema({
 });
 
 const hotelDetailsSchema = new Mongoose.Schema({
-  hotelId: { type: Mongoose.Schema.Types.ObjectId, ref: "Hotel" },
+  hotelId: { type: Mongoose.Schema.Types.ObjectId, ref: "hotels" },
   roomType: { type: String },
   occupancy: { type: Number }, // 1, 2, 3
   childWithBed: { type: Boolean, default: false },
@@ -53,17 +53,17 @@ const bookingSchema = new Mongoose.Schema(
     user: { type: Mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     holidayPackageId: {
       type: Mongoose.Schema.Types.ObjectId,
-      ref: "TravelPackage",
+      ref: "HolidayPackage",
       required: true,
     },
     vehicleId: {
       type: Mongoose.Schema.Types.ObjectId,
-      ref: "Vehicle",
+      ref: "vehicles",
       required: true,
     },
     hotelId: {
       type: Mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
+      ref: "hotels",
       required: true,
     },
     startDate: { type: Date, required: true },
