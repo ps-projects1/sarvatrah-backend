@@ -7,7 +7,7 @@ const router = express.Router();
 // Create a new booking
 router.post(
   "/createbooking",
-  authMiddleware,
+    authMiddleware,
   bookingController?.createBooking?.createBooking
 );
 
@@ -18,12 +18,19 @@ router.get(
   bookingController.fetchBooking.fetchBooking
 );
 
+router.get(
+  "/fetchUserBooking",
+    authMiddleware,
+  bookingController.fetchBooking.fetchBookingByUser
+)
+
 
 router.post(
   "/calculateBooking",
   
   calculatePackageCost
 )
+
 // Get a single booking by ID
 // router.get('/:id', bookingController.getBookingById);
 
