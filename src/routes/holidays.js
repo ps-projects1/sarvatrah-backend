@@ -224,7 +224,7 @@ route.post("/package-list",generalLimiter, async (req, res, next) => {
 });
 
 route.get("/packages",generalLimiter, async (req, res, next) => {
-  const packageList = await packageCollection.find({ active: true });
+  const packageList = await HolidayPackage.find({ active: true });
   // Get Icon
   const getIcons = (args) => {
     const activity_lists = [];
