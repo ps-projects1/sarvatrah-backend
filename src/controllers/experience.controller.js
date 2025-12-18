@@ -239,12 +239,29 @@ const calenderEvent = async (req, res) => {
  */
 const deleteExperience = async (req, res) => {
   const { id } = req.params;
+
+  // Validate ID
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: "Invalid id" });
   }
+
+  // Try deleting the document
   const experience = await experienceModel.findByIdAndDelete(id);
-  return res.status(200).json(experience);
+
+  // If no data found
+  if (!experience) {
+    return res.status(404).json({
+      message: "No Data Found"
+    });
+  }
+
+  // If deleted successfully
+  return res.status(200).json({
+    message: "Experience deleted successfully",
+       
+  });
 };
+
 
 /**
  * Retrieves an experience with the given ID from the database and returns it as a JSON response.
