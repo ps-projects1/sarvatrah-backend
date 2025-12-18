@@ -2,6 +2,11 @@ require("dotenv").config();
 const nodemailer = require("nodemailer");
 const moment = require("moment");
 
+/**
+ * ============================
+ * 📬 Nodemailer Transporter
+ * ============================
+ */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
@@ -16,21 +21,23 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Generic Email Sender
+ * ============================
+ * 📧 Generic Email Sender
+ * ============================
  * @param {Object} options
- * @param {string|string[]} options.to - Receiver email(s)
- * @param {string} options.subject - Email subject
- * @param {string} options.text - Fallback plain text
- * @param {string} options.html - HTML body
- * @param {string} options.from - Optional custom sender name/email
- * @param {Array} options.attachments - Optional file attachments
+ * @param {string|string[]} options.to
+ * @param {string} options.subject
+ * @param {string} options.text
+ * @param {string} options.html
+ * @param {string} options.from
+ * @param {Array} options.attachments
  */
 const sendEmail = async ({
   to,
   subject,
   text = "",
   html = "",
-  from = `"Sarvatrah 😎" <${process.env.EMAIL_USER}>`,
+  from = `"Sarvatrah Support" <${process.env.EMAIL_USER}>`,
   attachments = [],
 }) => {
   try {
@@ -43,21 +50,30 @@ const sendEmail = async ({
       attachments,
     });
 
-    console.log("Email sent: %s", info.messageId);
+    console.log(
+      `📨 Email sent | ID: ${info.messageId} | ${moment().format(
+        "YYYY-MM-DD HH:mm:ss"
+      )}`
+    );
+
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error(
-      "Email sending failed:",
-      error,
+      "❌ Email sending failed:",
+      error.message,
       moment().format("YYYY-MM-DD HH:mm:ss")
     );
+
     return { success: false, message: error.message };
   }
 };
 
-//
-// 📩 1. Send Credentials
-//
+/**
+ * ============================
+ * 📩 1. Send Credentials
+ * ============================
+ * (NO BREAKING CHANGES)
+ */
 const sendCredentials = async (
   mail,
   user_id,
@@ -65,49 +81,78 @@ const sendCredentials = async (
   callback = () => {}
 ) => {
   const html = `
-    <p>Hello,</p>
-    <p>Your user ID and password are as follows:</p>
-    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse;">
-      <thead style="background-color: #f8f8f8;">
-        <tr><th>User ID</th><th>Password</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>${user_id}</td><td>${password}</td></tr>
-      </tbody>
-    </table>
-    <p>Thank you!</p>
+    <div style="font-family: Arial, sans-serif;">
+      <h2>Welcome</h2>
+      <p>Your login credentials are below:</p>
+
+      <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse;">
+        <thead style="background-color: #f5f5f5;">
+          <tr>
+            <th>User ID</th>
+            <th>Password</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${user_id}</td>
+            <td>${password}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Please change your password after first login.</p>
+      <p>Regards,<br/>Sarvatrah Team</p>
+    </div>
   `;
 
   const result = await sendEmail({
     to: mail,
     subject: "Your Login Credentials",
-    text: `Your credentials: ID: ${user_id}, Password: ${password}`,
+    text: `User ID: ${user_id}, Password: ${password}`,
     html,
   });
 
   if (!result.success) {
     callback(false, { error: result.message });
   } else {
-    callback(true, { message: "Email sent" });
+    callback(true, { message: "Email sent successfully" });
   }
 
   return result;
 };
 
-//
-// 📩 2. Send OTP
-//
+/**
+ * ============================
+ * 📩 2. Send OTP
+ * ============================
+ * (Signature unchanged)
+ */
 const sendOtp = async (mail, otp) => {
-  const html = `<p>Your OTP is: <strong>${otp}</strong></p>`;
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>OTP Verification</h2>
+      <p>Your One-Time Password is:</p>
+      <h1 style="letter-spacing: 4px;">${otp}</h1>
+      <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+      <p>If you did not request this, please ignore this email.</p>
+      <br/>
+      <p>Regards,<br/>Sarvatrah Support</p>
+    </div>
+  `;
+
   return await sendEmail({
     to: mail,
     subject: "OTP Verification",
-    text: `Your OTP is: ${otp}`,
+    text: `Your OTP is ${otp}. It is valid for 10 minutes.`,
     html,
-    from: '"Prince Patidar 😎" <princegangadiya99k@gmail.com>',
   });
 };
 
+/**
+ * ============================
+ * 📦 Exports
+ * ============================
+ */
 module.exports = {
   sendEmail,
   sendCredentials,

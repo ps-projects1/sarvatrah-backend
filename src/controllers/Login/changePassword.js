@@ -3,34 +3,43 @@ const User = require("../../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+const JWT_SECRET = process.env.JWT_SECRET;
+
 const changePassword = async (req, res) => {
   try {
-    console.log("change password");
+    const { otp: userOtp, password: newPassword } = req.body;
 
-    const { password } = req.body;
-
-    if (!password) {
+    if (!userOtp || !newPassword) {
       return res.status(400).json({
         status: 400,
         success: false,
-        message: "Password is required.",
+        message: "Both OTP and new password are required.",
       });
     }
 
-    // Retrieve the JWT token from cookies
-    const token = req.cookies.resetPassToken;
+    // Retrieve JWT token from cookies
+    const token = req.cookies.resetPassToken ;
     if (!token) {
       return res
         .status(401)
-        .json({ success: false, message: "Token not found." });
+        .json({ success: false, message: "Token not found or expired." });
     }
 
     try {
-      // Decode and verify the JWT token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Decode and verify JWT
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const { email, otp } = decoded;
 
-      // Check if user exists with the email from decoded token
-      const user = await User.findOne({ email: decoded.email });
+      // Compare OTP from token with the one provided by user
+      if (String(otp) !== String(userOtp)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid OTP.",
+        });
+      }
+
+      // Find user by email
+      const user = await User.findOne({ email }).select("+password");
       if (!user) {
         return res.status(404).json({
           status: 404,
@@ -39,24 +48,24 @@ const changePassword = async (req, res) => {
         });
       }
 
-      // Hash the new password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Update the user's password
+      // Hash and update the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
       user.password = hashedPassword;
       await user.save();
 
+      // Clear the cookie after successful password change
       res.clearCookie("resetPassToken", { httpOnly: true, secure: true });
 
       return res.status(200).json({
         success: true,
         message: "Password updated successfully.",
       });
+
     } catch (error) {
       console.error("Error in Change Password API:", error);
       return res
         .status(403)
-        .json({ success: false, message: "Token verification failed." });
+        .json({ success: false, message: "Token verification failed or expired." });
     }
   } catch (error) {
     console.error("Error in Change Password API:", error);

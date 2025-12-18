@@ -5,6 +5,7 @@ const forgotPassword = require("./forgotPassword");
 const verifyOtp = require("./verifyOtp");
 const changePassword = require("./changePassword");
 const logout = require('./logout');
+const resendOtp = require('./resendOtp');
 
 module.exports = {
   login: login,
@@ -13,5 +14,6 @@ module.exports = {
   forgotPassword: forgotPassword,
   verifyOtp: verifyOtp,
   changePassword: changePassword,
-  logout : logout
+  logout : logout,
+  resendOtp : resendOtp
 };

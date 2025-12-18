@@ -1,37 +1,58 @@
 const jwt = require("jsonwebtoken");
+const User = require("../../models/user");
+require("dotenv").config();
 
-const verifyOtp = (req, res) => {
+const JWT_SECRET = process.env.JWT_SECRET;
+
+const verifyOtp = async (req, res) => {
   const { otp: userOtp } = req.body;
 
-  // Retrieve the JWT token from cookies
-  const token = req.cookies.resetPassToken;
+  // Only handle the registration OTP cookie
+  const token = req.cookies.register_otp;
+
   if (!token) {
-    return res
-      .status(401)
-      .json({ success: false, message: "Token not found." });
+    return res.status(401).json({
+      success: false,
+      message: "OTP token not found or expired",
+    });
   }
 
   try {
-    // Decode and verify the JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // 🔐 Verify JWT
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { email, otp } = decoded;
 
-    // Compare the OTP provided by the user with the one in the token
-    if (decoded.otp === userOtp) {
-      return res
-        .status(200)
-        .json({ success: true, message: "OTP verified successfully." });
-    } else {
-      return res.status(400).json({ success: false, message: "Invalid OTP." });
+    // 🔢 Compare OTP
+    if (String(otp) !== String(userOtp)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
     }
+
+    // ✅ Mark user as verified
+    await User.updateOne(
+      { email },
+      {
+        isVerified: true,
+        verifiedAt: new Date(),
+      }
+    );
+
+    // Clear the register OTP cookie
+    res.clearCookie("register_otp");
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully. Your account is now active.",
+    });
   } catch (error) {
-    console.log("Verify OTP API : ",error);
-    
-    return res
-      .status(403)
-      .json({ success: false, message: "Token verification failed." });
+    console.error("Verify Register OTP Error:", error.message);
+    return res.status(403).json({
+      success: false,
+      message: "OTP expired or invalid",
+    });
   }
 };
 
-module.exports = {
-  verifyOtp
-}
+module.exports = { verifyOtp };
