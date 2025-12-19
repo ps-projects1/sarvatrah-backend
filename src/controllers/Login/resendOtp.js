@@ -1,9 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../../models/user");
 const otpGenerator = require("../../helper/otpGenerator");
-const { sendOtp } = require("../../helper/sendMail");
-require("dotenv").config();
+const { sendOtpToPhone } = require("../../helper/sendSmsOtp");
 
+require("dotenv").config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const resendOtp = async (req, res) => {
@@ -42,10 +42,10 @@ const resendOtp = async (req, res) => {
       });
     }
 
-    const { email } = decoded;
+    const { userId, mobilenumber } = decoded;
 
     // 🔍 Ensure user exists
-    const user = await User.findOne({ email });
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -61,29 +61,36 @@ const resendOtp = async (req, res) => {
       });
     }
 
-    // 🔑 Generate new OTP + new JWT
+    // 🔑 Generate new OTP
     const newOtp = otpGenerator();
     const newToken = jwt.sign(
-      { email, otp: newOtp },
+      { userId, mobilenumber, otp: newOtp },
       JWT_SECRET,
       { expiresIn: "10m" }
     );
 
-    // 📧 Send OTP email
-    await sendOtp(email, newOtp);
+    // 📲 Send OTP via SMS
+    const smsResult = await sendOtpToPhone(mobilenumber, newOtp);
+    if (!smsResult.success) {
+      console.error("SMS sending failed:", smsResult.error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to resend OTP via SMS. Please try again later.",
+      });
+    }
 
-    // 🍪 Reset SAME cookie (important)
+    // 🍪 Reset the same cookie with new token
     res.cookie(cookieName, newToken, {
-  httpOnly: true,             // prevent JS access
-  secure: true,               // required for HTTPS
-  sameSite: "none",           // allow cross-site requests
-  maxAge: 10 * 60 * 1000,     // 10 minutes
-  path: "/",                  // accessible across all routes
-});
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 10 * 60 * 1000, // 10 minutes
+      path: "/",
+    });
 
     return res.status(200).json({
       success: true,
-      message: "OTP resent successfully.",
+      message: "OTP resent successfully via SMS.",
     });
 
   } catch (error) {
@@ -96,4 +103,3 @@ const resendOtp = async (req, res) => {
 };
 
 module.exports = { resendOtp };
-    

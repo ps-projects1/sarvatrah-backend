@@ -2,71 +2,84 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const User = require("../../models/user");
 const otpGenerator = require("../../helper/otpGenerator");
-const { sendOtp } = require("../../helper/sendMail");
-require("dotenv").config();
+const { sendOtpToPhone } = require("../../helper/sendSmsOtp");
 
+require("dotenv").config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const register = async (req, res) => {
   const { firstname, lastname, email, mobilenumber, password } = req.body;
-  
-  if (!firstname || !lastname || !email || !password) {
+
+  // Validate required fields
+  if (!firstname || !lastname || !mobilenumber || !password) {
     return res.status(400).json({
       status: 400,
       success: false,
-      message: "firstname, lastname, email and password are required",
+      message: "firstname, lastname, mobilenumber, and password are required",
     });
   }
 
   try {
-    // 🔍 Check existing user
-    const existingUser = await User.findOne({ email });
+    // Check if user already exists by mobile number
+    const existingUser = await User.findOne({
+  $or: [
+    { email: email },         // check by email
+    { mobilenumber: mobilenumber } // check by mobile number
+  ]
+});
     if (existingUser) {
       return res.status(400).json({
         status: 400,
         success: false,
-        message: "Account already exists",
+        message: "Account with this mobile number or email already exists",
       });
     }
 
-    // 🔐 Hash password
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 👤 Create user (unverified)
-    await User.create({
+    // Create user (unverified)
+    const newUser = await User.create({
       firstname,
       lastname,
-      email,
+      email: email || null,       // optional email
       mobilenumber,
-      userRole: 0,
       password: hashedPassword,
+      userRole: 0,                 // default: normal user
       isVerified: false,
     });
 
-    // 🔑 Generate OTP + JWT
+    // Generate OTP and JWT token
     const otp = otpGenerator();
     const otpToken = jwt.sign(
-      { email, otp },
+      { userId: newUser._id, mobilenumber, otp },
       JWT_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "10m" }   // OTP expires in 10 minutes
     );
 
-    // 📧 Send OTP email
-    await sendOtp(email, otp);
+    // Send OTP via SMS
+    const smsResult = await sendOtpToPhone(mobilenumber, otp);
+    if (!smsResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP via SMS",
+        error: smsResult.error,
+      });
+    }
 
-    // 🍪 Set OTP cookie
- res.cookie("register_otp", otpToken, {
-  httpOnly: true,                // prevent JS access
-  secure: true,                  // must be HTTPS
-  sameSite: "none",              // allow cross-site requests
-  maxAge: 10 * 60 * 1000,        // 10 minutes
-  path: "/",                     // accessible across all routes
-});
+    // Set OTP JWT in cookie
+    res.cookie("register_otp", otpToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 10 * 60 * 1000,   // 10 minutes
+      path: "/",
+    });
 
     return res.status(201).json({
       status: 201,
       success: true,
-      message: "Account created successfully. OTP sent to email.",
+      message: "Account created successfully. OTP sent via SMS.",
     });
 
   } catch (err) {
@@ -79,7 +92,3 @@ const register = async (req, res) => {
 };
 
 module.exports = { register };
-
-
-
-

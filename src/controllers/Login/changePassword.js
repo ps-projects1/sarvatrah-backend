@@ -18,7 +18,7 @@ const changePassword = async (req, res) => {
     }
 
     // Retrieve JWT token from cookies
-    const token = req.cookies.resetPassToken ;
+    const token = req.cookies.resetPassToken;
     if (!token) {
       return res
         .status(401)
@@ -28,7 +28,7 @@ const changePassword = async (req, res) => {
     try {
       // Decode and verify JWT
       const decoded = jwt.verify(token, JWT_SECRET);
-      const { email, otp } = decoded;
+      const { userId, mobilenumber, otp } = decoded;
 
       // Compare OTP from token with the one provided by user
       if (String(otp) !== String(userOtp)) {
@@ -38,8 +38,8 @@ const changePassword = async (req, res) => {
         });
       }
 
-      // Find user by email
-      const user = await User.findOne({ email }).select("+password");
+      // Find user by ID and mobile number
+      const user = await User.findOne({ _id: userId, mobilenumber }).select("+password");
       if (!user) {
         return res.status(404).json({
           status: 404,
@@ -54,7 +54,12 @@ const changePassword = async (req, res) => {
       await user.save();
 
       // Clear the cookie after successful password change
-      res.clearCookie("resetPassToken", { httpOnly: true, secure: true });
+      res.clearCookie("resetPassToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      });
 
       return res.status(200).json({
         success: true,

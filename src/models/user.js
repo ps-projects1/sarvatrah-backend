@@ -15,7 +15,7 @@ const userSchema = new Schema(
 
     email: {
       type: String,
-      required: true,
+   
       unique: true,       // 🔐 prevent duplicate accounts
       lowercase: true,
       trim: true,

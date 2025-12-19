@@ -1,66 +1,70 @@
 require("dotenv").config();
 const { generateErrorResponse } = require("../../helper/response");
 const User = require("../../models/user");
-const bcrypt = require("bcrypt");
-const { sendOtp } = require("../../helper/sendMail");
+const { sendOtpToPhone } = require("../../helper/sendSmsOtp");
 const otpGenerator = require("../../helper/otpGenerator");
 const jwt = require("jsonwebtoken");
 
 const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { mobilenumber } = req.body;
 
-    if (!email) {
+    if (!mobilenumber) {
       return res.status(400).json({
         status: 400,
         success: false,
-        message: "email is required",
+        message: "Mobile number is required",
       });
     }
 
-    const isExist = await User.findOne({ email });
-
-    if (!isExist) {
+    // 🔍 Check if user exists
+    const user = await User.findOne({ mobilenumber });
+    if (!user) {
       return res.status(422).json({
         status: 422,
         success: false,
-        message: "email not exist",
+        message: "Mobile number not registered",
       });
     }
 
-    let otp = otpGenerator();
-    let resetToken = jwt.sign({ email, otp }, process.env.JWT_SECRET, {
-      expiresIn: "10m",
+    // 🔑 Generate OTP + JWT token
+    const otp = otpGenerator();
+    const resetToken = jwt.sign(
+      { userId: user._id, mobilenumber, otp },
+      process.env.JWT_SECRET,
+      { expiresIn: "10m" }
+    );
+
+    // 📲 Send OTP via SMS
+    const smsResult = await sendOtpToPhone(mobilenumber, otp);
+    if (!smsResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP via SMS",
+        error: smsResult.error,
+      });
+    }
+
+    // 🍪 Set OTP token in cookie
+    res.cookie("resetPassToken", resetToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 10 * 60 * 1000, // 10 minutes
+      path: "/",
     });
 
-    let sendMailResponse = await sendOtp(email, otp);
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to your mobile number",
+    });
 
-    console.log("sendMailResponse >> ", sendMailResponse);
-
-    if (!sendMailResponse?.success) {
-      return res
-        .status(500)
-        .json({ success: false, message: sendMailResponse?.message });
-    } else {
-      const options = {
-        expire: new Date(Date.now() + 10 * 60 * 1000),
-        httpOnly: true,
-        secure: true,
-      };
-
-      res
-        .cookie("resetPassToken", resetToken, options)
-        .status(200)
-        .json({ message: "otp sent on your email" });
-    }
   } catch (error) {
-    console.log("Error forgot password API : ", error);
+    console.error("Forgot Password Error:", error);
     return res
       .status(500)
       .json(generateErrorResponse("Some internal server error", error.message));
   }
 };
 
-module.exports = {
-  forgotPassword,
-};
+module.exports = { forgotPassword };

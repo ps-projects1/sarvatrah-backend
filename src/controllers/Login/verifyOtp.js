@@ -20,7 +20,7 @@ const verifyOtp = async (req, res) => {
   try {
     // 🔐 Verify JWT
     const decoded = jwt.verify(token, JWT_SECRET);
-    const { email, otp } = decoded;
+    const { userId, mobilenumber, otp } = decoded;
 
     // 🔢 Compare OTP
     if (String(otp) !== String(userOtp)) {
@@ -32,7 +32,7 @@ const verifyOtp = async (req, res) => {
 
     // ✅ Mark user as verified
     await User.updateOne(
-      { email },
+      { _id: userId, mobilenumber },
       {
         isVerified: true,
         verifiedAt: new Date(),
@@ -40,7 +40,12 @@ const verifyOtp = async (req, res) => {
     );
 
     // Clear the register OTP cookie
-    res.clearCookie("register_otp");
+    res.clearCookie("register_otp", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+    });
 
     return res.status(200).json({
       success: true,
