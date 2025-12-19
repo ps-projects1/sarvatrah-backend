@@ -60,7 +60,7 @@ const login = async (req, res) => {
     await user.save();
 
     // 🍪 Set auth cookie
-   res.cookie("auth_token", token, {
+  res.cookie("auth_token", token, {
   httpOnly: true,                  // prevent JS access
   secure: true,                     // must be HTTPS
   sameSite: "none",                 // allow cross-site requests

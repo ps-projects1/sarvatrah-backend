@@ -130,7 +130,7 @@ app.post("/token/:type", (req, res) => {
 
 app.get("/test",(req, res)=>{
 
-  res.json({test:"Working"})
+  res.json({test:"Working ...."})
 })
 
 // 404 handler
