@@ -46,11 +46,13 @@ const register = async (req, res) => {
       mobilenumber,
       password: hashedPassword,
       userRole: 0,                 // default: normal user
-      isVerified: false,
+      isVerified: true,            // set to true for testing; change to false in production
     });
 
     // Generate OTP and JWT token
-    const otp = otpGenerator();
+
+    //to be comented
+   /*  const otp = otpGenerator();
     const otpToken = jwt.sign(
       { userId: newUser._id, mobilenumber, otp },
       JWT_SECRET,
@@ -74,12 +76,12 @@ const register = async (req, res) => {
       sameSite: "strict",
       maxAge: 10 * 60 * 1000,   // 10 minutes
       path: "/",
-    });
+    }); */
 
     return res.status(201).json({
       status: 201,
       success: true,
-      message: "Account created successfully. OTP sent via SMS.",
+      message: "Account created successfully. ",
     });
 
   } catch (err) {
