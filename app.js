@@ -29,6 +29,7 @@ const vehicleRoutes = require("./src/routes/vehicle.route");
 const stateRoutes = require("./src/routes/state.route");
 const cityRoutes = require("./src/routes/city.route");
 const holidayRoutes = require("./src/routes/holidayPackage.route");
+const otpless = require("./src/routes/otpless")
 
 dotenv.config();
 const app = express();
@@ -93,6 +94,7 @@ app.use("/vehicle", vehicleRoutes);
 app.use("/state", stateRoutes);
 app.use("/city", cityRoutes);
 app.use("/holiday", holidayRoutes);
+app.use("/auth",otpless)
 
 app.use("/api/footer", footerRoutes);
 

@@ -27,7 +27,7 @@ const userSchema = new Schema(
 
     password: {
       type: String,
-      required: true,
+  
       select: false,      // 🔐 hide password by default
     },
 
@@ -49,6 +49,16 @@ const userSchema = new Schema(
     verifiedAt: {
       type: Date,
     },
+    otplessSub: {
+  type: String,
+  index: true,
+},
+authProvider: {
+  type: String,
+  enum: ['password', 'otpless'],
+  default: 'password',
+},
+
 
     // 🔐 Login / session tokens (optional but useful)
     tokens: [
