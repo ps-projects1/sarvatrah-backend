@@ -74,30 +74,42 @@ const createBooking = async (req, res) => {
     // ---------------------------------------------------------
     // ⭐⭐ OLD VERSION — USE GIVEN totalPrice ⭐⭐
     // ---------------------------------------------------------
-    if (totalPrice) {
-      const booking = new Booking({
-        user: userId,
-        holidayPackageId: packageId,
-        vehicleId,
-        hotelId,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        bookingDate: new Date(bookingDate),
-        totalTraveller: Number(totalTraveller),
-        totalPrice: Number(totalPrice), // DIRECT USE
-        status: "Pending",
-        travellers,
-        billingInfo
-      });
+   if (totalPrice) {
+  const booking = new Booking({
+    user: userId,
+    holidayPackageId: packageId,
+    vehicleId,
+    hotelId,
+    startDate: new Date(startDate),
+    endDate: new Date(endDate),
+    bookingDate: new Date(bookingDate),
+    totalTraveller: Number(totalTraveller),
 
-      await booking.save();
+    // ⚠️ Client price (allowed by business decision)
+    totalPrice: Number(totalPrice),
 
-      return res.status(201).json({
-        message: "Booking created successfully (old version).",
-        booking,
-        version: "old"
-      });
-    }
+    // 👇 payment flow still enforced
+    status: "PaymentPending",
+
+    travellers,
+    billingInfo,
+
+    // 👇 REQUIRED for Razorpay
+    payment: {
+      amount: Number(totalPrice),
+      status: "created",
+    },
+  });
+
+  await booking.save();
+
+  return res.status(201).json({
+    message: "Booking created successfully (old version, payment pending).",
+    booking,
+    version: "old",
+  });
+}
+
 
     // ---------------------------------------------------------
     // ⭐⭐ NEW VERSION — CALCULATE PRICE INTERNALLY ⭐⭐
@@ -149,7 +161,11 @@ const createBooking = async (req, res) => {
       bookingDate: new Date(bookingDate),
       totalTraveller: Number(totalTraveller),
       totalPrice: Number(calculatedPrice),
-      status: "Pending",
+     status: "PaymentPending",
+      payment: {
+    amount: Number(calculatedPrice),
+    status: "created",
+  },
       travellers,
       billingInfo,
 

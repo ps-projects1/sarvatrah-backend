@@ -48,6 +48,8 @@ const costBreakupSchema = new Mongoose.Schema({
   finalPackage: Number,
 }, { _id: false });
 
+
+
 const bookingSchema = new Mongoose.Schema(
   {
     user: { type: Mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -73,12 +75,43 @@ const bookingSchema = new Mongoose.Schema(
     totalPrice: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["Pending", "Confirmed", "Cancelled"],
+      enum: [
+        "Pending",          // booking created
+        "PaymentPending",   // order created, payment not done
+        "Confirmed",        // payment successful
+        "PaymentFailed",
+        "Cancelled",
+        "Refunded"
+      ],
       default: "Pending",
     },
+
     travellers: [travellerSchema],
     billingInfo: billingSchema,
     costBreakup: costBreakupSchema,
+    payment: {
+      provider: {
+        type: String,
+        enum: ["razorpay"],
+        default: "razorpay",
+      },
+
+      orderId: { type: String },       // Razorpay order_id
+      paymentId: { type: String },     // Razorpay payment_id
+      signature: { type: String },     // Razorpay signature
+
+      amount: { type: Number },        // amount in rupees
+      currency: { type: String, default: "INR" },
+
+      status: {
+        type: String,
+        enum: ["created", "paid", "failed", "refunded"],
+        default: "created",
+      },
+
+      paidAt: { type: Date },
+    },
+
     hotelDetails: hotelDetailsSchema,
 
   },
