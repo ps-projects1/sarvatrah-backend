@@ -14,6 +14,7 @@ const connectDB = require("./src/config/dbConfig");
 // Routes
 const footerRoutes = require("./src/routes/footer");
 const inventriesRouts = require("./src/routes/inventry");
+const inventoryRoutes = require("./src/routes/inventory");
 const holidayRouts = require("./src/routes/holidays");
 const actRouts = require("./src/routes/act");
 const pilgriRouts = require("./src/routes/pilgri");
@@ -29,6 +30,7 @@ const vehicleRoutes = require("./src/routes/vehicle.route");
 const stateRoutes = require("./src/routes/state.route");
 const cityRoutes = require("./src/routes/city.route");
 const holidayRoutes = require("./src/routes/holidayPackage.route");
+const couponRoutes = require("./src/routes/coupons");
 const otpless = require("./src/routes/otpless")
 
 dotenv.config();
@@ -94,6 +96,8 @@ app.use("/vehicle", vehicleRoutes);
 app.use("/state", stateRoutes);
 app.use("/city", cityRoutes);
 app.use("/holiday", holidayRoutes);
+app.use("/api/inventory", inventoryRoutes);
+app.use("/api/coupons", couponRoutes);
 app.use("/auth",otpless)
 
 app.use("/api/footer", footerRoutes);

@@ -7,12 +7,13 @@ const { calculatePackageCostInternal } = require("./calBooking");
 
 const createBooking = async (req, res) => {
   try {
+    // 🔐 Always take user from token
+    const userId = req.user._id;
+
     const {
-      userId,
       startDate,
       endDate,
-      bookingDate,
-      totalPrice, // ⭐ KEY SWITCH
+      totalPrice,           // OLD FLOW SWITCH
       totalTraveller,
       vehicleId,
       hotelId,
@@ -20,7 +21,7 @@ const createBooking = async (req, res) => {
       travellers,
       billingInfo,
 
-      // NEW VERSION FIELDS
+      // NEW FLOW FIELDS
       roomType,
       occupancy,
       childWithBed,
@@ -28,21 +29,33 @@ const createBooking = async (req, res) => {
       priceMarkup
     } = req.body;
 
-    // ---------- BASIC VALIDATION ----------
+    /* =====================
+       BASIC VALIDATION
+    ===================== */
     if (
-      !userId || !startDate || !endDate || !bookingDate ||
-      !totalTraveller || !vehicleId || !hotelId || !packageId
+      !startDate || !endDate ||
+      !totalTraveller || !vehicleId ||
+      !hotelId || !packageId
     ) {
-      return res.status(400).json({ message: "Missing required fields." });
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields."
+      });
     }
 
-    // ---------- USER VALIDATION ----------
+    /* =====================
+       USER VALIDATION
+    ===================== */
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
-    if (user.userRole !== 0)
-      return res.status(400).json({ message: "Only users can book." });
+    if (!user)
+      return res.status(404).json({ message: "User not found." });
 
-    // ---------- REFERENCE VALIDATION ----------
+    if (user.userRole !== 0)
+      return res.status(403).json({ message: "Only users can book." });
+
+    /* =====================
+       REFERENCE VALIDATION
+    ===================== */
     const holidayPackage = await HolidayPackage.findById(packageId);
     if (!holidayPackage)
       return res.status(404).json({ message: "Holiday package not found." });
@@ -52,11 +65,16 @@ const createBooking = async (req, res) => {
       return res.status(404).json({ message: "Vehicle not found." });
 
     const hotel = await hotelCollection.findById(hotelId);
-    if (!hotel) return res.status(404).json({ message: "Hotel not found." });
+    if (!hotel)
+      return res.status(404).json({ message: "Hotel not found." });
 
-    // ---------- TRAVELLERS VALIDATION ----------
+    /* =====================
+       TRAVELLER VALIDATION
+    ===================== */
     if (!Array.isArray(travellers) || travellers.length === 0) {
-      return res.status(400).json({ message: "Travellers data is required." });
+      return res.status(400).json({
+        message: "Travellers data is required."
+      });
     }
 
     if (travellers.filter(t => t.isLeadTraveller).length !== 1) {
@@ -66,54 +84,53 @@ const createBooking = async (req, res) => {
     }
 
     if (travellers.length !== Number(totalTraveller)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Total travellers count mismatch."
       });
     }
 
-    // ---------------------------------------------------------
-    // ⭐⭐ OLD VERSION — USE GIVEN totalPrice ⭐⭐
-    // ---------------------------------------------------------
-   if (totalPrice) {
-  const booking = new Booking({
-    user: userId,
-    holidayPackageId: packageId,
-    vehicleId,
-    hotelId,
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
-    bookingDate: new Date(bookingDate),
-    totalTraveller: Number(totalTraveller),
+    /* =====================================================
+       OLD VERSION — CLIENT PROVIDED PRICE
+       (Allowed by business decision)
+    ===================================================== */
+    if (totalPrice) {
+      const booking = new Booking({
+        user: userId,
+        holidayPackageId: packageId,
+        vehicleId,
+        hotelId,
+        startDate,
+        endDate,
+        totalTraveller,
+        totalPrice: Number(totalPrice),
+        status: "PaymentPending",
+        travellers,
+        billingInfo,
+        payment: {
+          amount: Number(totalPrice),
+          status: "created"
+        }
+      });
 
-    // ⚠️ Client price (allowed by business decision)
-    totalPrice: Number(totalPrice),
+      await booking.save();
 
-    // 👇 payment flow still enforced
-    status: "PaymentPending",
+      return res.status(201).json({
+        success: true,
+        message: "Booking created successfully (old version).",
+        booking,
+        version: "old"
+      });
+    }
 
-    travellers,
-    billingInfo,
+    /* =====================================================
+       NEW VERSION — SERVER CALCULATED PRICE
+    ===================================================== */
+    if (!roomType || !occupancy) {
+      return res.status(400).json({
+        message: "roomType and occupancy are required for price calculation."
+      });
+    }
 
-    // 👇 REQUIRED for Razorpay
-    payment: {
-      amount: Number(totalPrice),
-      status: "created",
-    },
-  });
-
-  await booking.save();
-
-  return res.status(201).json({
-    message: "Booking created successfully (old version, payment pending).",
-    booking,
-    version: "old",
-  });
-}
-
-
-    // ---------------------------------------------------------
-    // ⭐⭐ NEW VERSION — CALCULATE PRICE INTERNALLY ⭐⭐
-    // ---------------------------------------------------------
     const costData = await calculatePackageCostInternal({
       holidayPackageId: packageId,
       vehicleId,
@@ -129,20 +146,23 @@ const createBooking = async (req, res) => {
 
     if (!costData.success) {
       return res.status(400).json({
-        message: costData.message || "Failed to calculate package cost."
+        message: costData.message
       });
     }
 
-    const calculatedPrice = costData.finalPackage;
-
-    // Extract hotel room prices
     const room = hotel.rooms.find(r =>
       r.roomType.toLowerCase().replace(/[^a-z0-9]/g, "") ===
       roomType.toLowerCase().replace(/[^a-z0-9]/g, "")
     );
 
-    const childWithBedPrice = room?.child?.childWithBedPrice || 0;
-    const childWithoutBedPrice = room?.child?.childWithoutBedPrice || 0;
+    if (!room) {
+      return res.status(400).json({
+        message: "Selected room type not found in hotel."
+      });
+    }
+
+    const childWithBedPrice = room.child?.childWithBedPrice || 0;
+    const childWithoutBedPrice = room.child?.childWithoutBedPrice || 0;
 
     const perDayAmount =
       (room.occupancyRates[occupancy - 1] || 0) +
@@ -156,19 +176,17 @@ const createBooking = async (req, res) => {
       holidayPackageId: packageId,
       vehicleId,
       hotelId,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      bookingDate: new Date(bookingDate),
-      totalTraveller: Number(totalTraveller),
-      totalPrice: Number(calculatedPrice),
-     status: "PaymentPending",
-      payment: {
-    amount: Number(calculatedPrice),
-    status: "created",
-  },
+      startDate,
+      endDate,
+      totalTraveller,
+      totalPrice: costData.finalPackage,
+      status: "PaymentPending",
       travellers,
       billingInfo,
-
+      payment: {
+        amount: costData.finalPackage,
+        status: "created"
+      },
       hotelDetails: {
         hotelId,
         roomType,
@@ -180,31 +198,27 @@ const createBooking = async (req, res) => {
         perDayRoomPrice: perDayAmount,
         totalHotelCost
       },
-
       costBreakup: {
-        days: costData.breakdown.days,
-        hotelCost: costData.breakdown.hotelCost,
-        vehicleCost: costData.breakdown.vehicleFinal,
-        priceMarkup: costData.breakdown.markup,
-        hotelPriceFound: costData.breakdown.hotelPriceFound,
-        vehiclePriceFound: costData.breakdown.vehiclePriceFound,
-        finalPackage: calculatedPrice
+        ...costData.breakdown,
+        finalPackage: costData.finalPackage
       }
     });
 
     await booking.save();
 
     return res.status(201).json({
+      success: true,
       message: "Booking created successfully (new version).",
       booking,
       version: "new"
     });
 
   } catch (error) {
-    console.error("Error creating booking:", error);
+    console.error("Create Booking Error:", error);
     return res.status(500).json({
+      success: false,
       message: "Error creating booking",
-      error: error.message,
+      error: error.message
     });
   }
 };

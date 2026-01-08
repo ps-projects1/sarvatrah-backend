@@ -1,6 +1,7 @@
 const route = require("express").Router();
 const {
   getHotel,
+  getHotelById,
   addHotel,
   deleteHotel,
   updateHotel,
@@ -11,6 +12,7 @@ const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/
 
 // Apply generalLimiter for get and delete routes
 route.get("/get-hotels", generalLimiter, getHotel);
+route.get("/:id", generalLimiter, getHotelById);
 route.delete("/delete-hotel", authMiddleware, generalLimiter, deleteHotel);
 
 // Apply uploadLimiter conditionally for add and update hotel routes

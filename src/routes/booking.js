@@ -1,39 +1,66 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/authMiddleware");
+
+
+// Controllers (direct imports)
 const bookingController = require("../controllers/Booking/BookingController");
 const { calculatePackageCost } = require("../controllers/Booking/calBooking");
-
 const { createPaymentOrder } = require("../controllers/Payment/createOrder");
 const { verifyPayment } = require("../controllers/Payment/verifyPayment");
+const { createBooking } = require("../controllers/Booking/createBooking");
+const { getBookingById } = require("../controllers/Booking/getBookingById");
+const { updateBooking } = require("../controllers/Booking/updateBooking");
+const { updateBookingStatus } = require("../controllers/Booking/updateBookingStatus");
+const { getBookingStats } = require("../controllers/Booking/getBookingStats");
+
+// Admin controllers
+const { fetchAllBookings } = require("../controllers/Booking/fetchAllBookings");
+const { deleteBooking } = require("../controllers/Booking/deleteBooking");
+
 
 const router = express.Router();
 
-// Create a new booking
+/* =========================
+   BOOKING CREATION
+========================= */
+
 router.post(
   "/createbooking",
-    authMiddleware,
-  bookingController?.createBooking?.createBooking
-);
-
-
-router.get(
-  "/fetchBooking",
   authMiddleware,
-  bookingController.fetchBooking.fetchBooking
+  bookingController.createBooking.createBooking
 );
 
+/* =========================
+   FETCH BOOKINGS
+========================= */
+
+// Admin – fetch all bookings (with filters)
+router.get(
+  "/",
+  authMiddleware,
+  fetchAllBookings
+);
+
+// User – fetch own bookings
 router.get(
   "/fetchUserBooking",
-    authMiddleware,
+  authMiddleware,
   bookingController.fetchBooking.fetchBookingByUser
-)
+);
 
+/* =========================
+   CALCULATE PACKAGE COST
+========================= */
 
 router.post(
   "/calculateBooking",
-  
+  authMiddleware,
   calculatePackageCost
-)
+);
+
+/* =========================
+   PAYMENT
+========================= */
 
 router.post(
   "/payment/create-order/:bookingId",
@@ -41,20 +68,49 @@ router.post(
   createPaymentOrder
 );
 
-// Verify Razorpay payment (frontend callback)
 router.post(
   "/payment/verify",
   authMiddleware,
   verifyPayment
 );
 
-// Get a single booking by ID
-// router.get('/:id', bookingController.getBookingById);
+/* =========================
+   DELETE BOOKING
+========================= */
 
-// Update a booking by ID
-// router.put('/:id', bookingController.updateBooking);
+router.delete(
+  "/:id",
+  authMiddleware,
+  deleteBooking
+);
 
-// Delete a booking by ID
-// router.delete('/:id', bookingController.deleteBooking);
+router.post(
+  "/",
+  authMiddleware,
+  createBooking
+);
 
+router.get(
+  "/:id",
+  authMiddleware,
+  getBookingById
+);
+
+router.put(
+  "/:id",
+  authMiddleware,
+  updateBooking
+);
+
+router.put(
+  "/:id/status",
+  authMiddleware,
+  updateBookingStatus
+);
+
+router.get(
+  "/stats",
+  authMiddleware,
+  getBookingStats
+);
 module.exports = router;
