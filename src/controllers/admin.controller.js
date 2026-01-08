@@ -8,55 +8,77 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // --------------------- Admin login ---------------------
 const adminLogin = async (req, res) => {
   const { email, password } = req.body;
-  // password
-  // test@123
+  
   if (!email || !password) {
     return res
       .status(400)
-      .json({ message: "Username and password are required" });
+      .json({ 
+        success: false,
+        message: "Email and password are required" 
+      });
   }
+  
   try {
     const admin = await Admin.findOne({ email: email });
 
     if (!admin) {
-      return res.status(400).json({ message: "Invalid username or password" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid email or password" 
+      });
     }
 
     const isMatch = await bcrypt.compare(password, admin.password);
 
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid username or password" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid email or password" 
+      });
     }
 
-    const token = await jwt.sign({ id: admin._id }, JWT_SECRET, {
-      expiresIn: "1h",
+    // ✅ Generate token with longer expiry for admin
+    const token = jwt.sign({ id: admin._id }, JWT_SECRET, {
+      expiresIn: "24h", // 24 hours for admin sessions
     });
 
-    const tokens = [
-      { token: token, expiresAt: new Date(Date.now() + 3600000) },
-    ];
+    // ✅ Store token in admin document
+    const tokenEntry = { 
+      token: token, 
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    };
 
-    admin.tokens = tokens;
-
-    // await Admin.updateOne(
-    //   { email },
-    //   { $set: { tokens, password: hashedPassword } }
-    // );
+    // ✅ Replace existing tokens (single session) or add to array (multiple sessions)
+    admin.tokens = [tokenEntry]; // Single session approach
+    
     await admin.save();
+
+    // ✅ Set cookie for browser clients
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax'
+    });
 
     res.json({
       success: true,
-      message: "Admin Logged in successfully !",
+      message: "Admin logged in successfully!",
       data: {
         token,
-        name: admin.firstname,
+        name: admin.username,
         email: admin.email,
-        userrole: admin.userRole,
+        userType: "admin",
+        isAdmin: true
       },
     });
   } catch (err) {
-    console.error("Error during login:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error during admin login:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error",
+      error: err.message 
+    });
   }
 };
 

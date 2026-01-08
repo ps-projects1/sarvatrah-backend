@@ -6,12 +6,14 @@ const Admin = require("../models/admin");
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const authMiddleware = async (req, res, next) => {
-  // Check token from cookie or authorization header
-  const token = req.cookies.auth_token || req.headers["authorization"]?.split(" ")[1];
+  // ✅ Token from cookie OR Authorization header
+  const token =
+    req.cookies.auth_token ||
+    req.headers["authorization"]?.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({
-      status: false,
+      success: false,
       code: 401,
       message: "No token, authorization denied",
     });
@@ -20,53 +22,68 @@ const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
-
     let userObject = null;
+    let isAdmin = false;
+    let userType = "user";
 
-    // 1️⃣ Check Admin first
-    userObject = await Admin.findOne({ _id: decoded.id });
+    // ===================== ADMIN CHECK FIRST =====================
+    userObject = await Admin.findById(decoded.id);
 
-    // 2️⃣ If admin not found → check User
-    if (!userObject) {
-      userObject = await User.findOne({ _id: decoded.id });
+    if (userObject) {
+      isAdmin = true;
+      userType = "admin";
+    } else {
+      // ===================== USER CHECK =====================
+      userObject = await User.findById(decoded.id);
+      isAdmin = false;
+      userType = "user";
     }
 
-    // 3️⃣ Still not found → Unauthorized
+    // ===================== INVALID TOKEN =====================
     if (!userObject) {
       return res.status(401).json({
-        status: false,
+        success: false,
         code: 401,
         message: "Unauthorized: Invalid token",
       });
     }
 
-    // 4️⃣ Check token entry
-    const tokenEntry = userObject.tokens?.find((t) => t.token === token);
+    // ===================== TOKEN VALIDATION =====================
+    const tokenEntry = userObject.tokens?.find(
+      (t) => t.token === token
+    );
 
     if (!tokenEntry) {
       return res.status(401).json({
-        status: false,
+        success: false,
         code: 401,
-        message: "Unauthorized: Token not found",
+        message: "Unauthorized: Token not found in database",
       });
     }
 
-    // 5️⃣ Check token expiration
     if (tokenEntry.expiresAt < new Date()) {
       return res.status(401).json({
-        status: false,
+        success: false,
         code: 401,
         message: "Token expired",
       });
     }
 
+    // ===================== ATTACH TO REQUEST =====================
     req.user = userObject;
+    req.isAdmin = isAdmin;
+    req.userType = userType;
     req.token = token;
+
+    // ✅ For admin routes compatibility
+    if (isAdmin) {
+      req.admin = userObject;
+    }
 
     next();
   } catch (error) {
     return res.status(401).json({
-      status: false,
+      success: false,
       code: 401,
       message: "Token is not valid",
       error: error.message,
