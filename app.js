@@ -31,6 +31,10 @@ const stateRoutes = require("./src/routes/state.route");
 const cityRoutes = require("./src/routes/city.route");
 const holidayRoutes = require("./src/routes/holidayPackage.route");
 const couponRoutes = require("./src/routes/coupons");
+const customerRoutes = require("./src/routes/customers");
+const dashboardRoutes = require("./src/routes/dashboard");
+const categoryRoutes = require("./src/routes/categories");
+const refundRoutes = require("./src/routes/refunds");
 const otpless = require("./src/routes/otpless")
 
 dotenv.config();
@@ -98,6 +102,10 @@ app.use("/city", cityRoutes);
 app.use("/holiday", holidayRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/coupons", couponRoutes);
+app.use("/api/inventries/categories", categoryRoutes);
+app.use("/api/refunds", refundRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/auth",otpless)
 
 app.use("/api/footer", footerRoutes);
