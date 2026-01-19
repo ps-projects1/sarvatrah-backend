@@ -86,18 +86,37 @@ const addHotel = async (req, res) => {
     // -------------------------------
     const imgs = [];
 
-    for (const file of req.files) {
-      const fileUrl = await uploadToSupabase(
-        file.path,           // local file saved by multer
-        file.originalname,    // actual file name
-        "hotels"              // Supabase folder
-      );
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          console.log(`Uploading file: ${file.originalname} from ${file.path}`);
+          
+          const fileUrl = await uploadToSupabase(
+            file.path,           // local file saved by multer
+            file.originalname,    // actual file name
+            "hotels"              // Supabase folder
+          );
 
-      imgs.push({
-        filename: file.originalname,
-        path: fileUrl,
-        mimetype: file.mimetype,
-      });
+          imgs.push({
+            filename: file.originalname,
+            path: fileUrl,
+            mimetype: file.mimetype,
+          });
+          
+          console.log(`Successfully uploaded: ${file.originalname}`);
+        } catch (uploadError) {
+          console.error(`Failed to upload ${file.originalname}:`, uploadError);
+          
+          // Use local path as fallback
+          imgs.push({
+            filename: file.originalname,
+            path: `/data/hotel/${file.filename}`,
+            mimetype: file.mimetype,
+          });
+          
+          console.log(`Using local path as fallback for: ${file.originalname}`);
+        }
+      }
     }
 
     // --------------------------------
