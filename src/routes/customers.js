@@ -6,6 +6,7 @@ const {
   getCustomers,
   getCustomerById,
   updateCustomer,
+  deleteCustomer,
   getCustomerBookings,
   getCustomerTransactions,
 } = require("../controllers/Customer/customer.controller");
@@ -13,6 +14,7 @@ const {
 route.get("/", authMiddleware, adminOnlyMiddleware, getCustomers);
 route.get("/:id", authMiddleware, adminOnlyMiddleware, getCustomerById);
 route.put("/:id", authMiddleware, adminOnlyMiddleware, updateCustomer);
+route.delete("/:id", authMiddleware, adminOnlyMiddleware, deleteCustomer);
 route.get("/:id/bookings", authMiddleware, adminOnlyMiddleware, getCustomerBookings);
 route.get("/:id/transactions", authMiddleware, adminOnlyMiddleware, getCustomerTransactions);
 
