@@ -52,7 +52,7 @@ const register = async (req, res) => {
     // Generate OTP and JWT token
 
     //to be comented
-   /*  const otp = otpGenerator();
+     const otp = otpGenerator();
     const otpToken = jwt.sign(
       { userId: newUser._id, mobilenumber, otp },
       JWT_SECRET,
@@ -76,7 +76,7 @@ const register = async (req, res) => {
       sameSite: "strict",
       maxAge: 10 * 60 * 1000,   // 10 minutes
       path: "/",
-    }); */
+    }); 
 
     return res.status(201).json({
       status: 201,
