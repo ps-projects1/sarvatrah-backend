@@ -187,6 +187,7 @@ const holidayPackageSchema = new dbs.Schema(
     refundableDays: { type: Number, default: 0 },
     include: String,
     exclude: String,
+    basePrice: { type: Number, default: 0, min: 0 },
     priceMarkup: { type: Number, default: 0 },
     inflatedPercentage: { type: Number, default: 0 },
     active: { type: Boolean, default: false },

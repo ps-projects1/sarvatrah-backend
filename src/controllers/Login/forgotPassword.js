@@ -35,8 +35,11 @@ const forgotPassword = async (req, res) => {
       { expiresIn: "10m" }
     );
 
-    // 📲 Send OTP via SMS
-    const smsResult = await sendOtpToPhone(mobilenumber, otp);
+    // 📲 Send OTP via SMS (format phone number with country code for Twilio)
+    const formattedPhone = mobilenumber.toString().startsWith('+')
+      ? mobilenumber.toString()
+      : `+91${mobilenumber}`;
+    const smsResult = await sendOtpToPhone(formattedPhone, otp);
     if (!smsResult.success) {
       return res.status(500).json({
         success: false,

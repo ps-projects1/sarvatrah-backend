@@ -12,6 +12,32 @@ const holidayPackageDetails = async (req, res) => {
     let { startDate, rooms, vehicle, hotels } = req.body;
     const { id } = req.params;
 
+    // Log incoming request data for debugging
+    console.log(`📥 [holidayPackageDetails] Request received:`);
+    console.log(`   - startDate: ${startDate}`);
+    console.log(`   - rooms type: ${typeof rooms}, isArray: ${Array.isArray(rooms)}`);
+    console.log(`   - rooms value:`, rooms);
+    console.log(`   - vehicle: ${vehicle}`);
+    console.log(`   - hotels type: ${typeof hotels}, isArray: ${Array.isArray(hotels)}`);
+    console.log(`   - hotels value:`, hotels);
+
+    // Parse rooms if it's a string (from FormData)
+    if (typeof rooms === 'string') {
+      console.log(`⚠️  Rooms is a string, parsing JSON...`);
+      try {
+        rooms = JSON.parse(rooms);
+        console.log(`✅ Rooms parsed successfully:`, rooms);
+      } catch (parseError) {
+        console.error(`❌ Failed to parse rooms JSON:`, parseError.message);
+        return res.status(400).json(
+          generateErrorResponse(
+            "Bad Request",
+            `Invalid rooms format. Expected JSON array: ${parseError.message}`
+          )
+        );
+      }
+    }
+
     // Validate ID
     if (!id) {
       return res
@@ -103,6 +129,34 @@ const holidayPackageDetails = async (req, res) => {
       }
     }
 
+    // Validate rooms parameter before processing hotels
+    console.log(`📋 Before hotel processing - rooms validation:`, {
+      roomsExists: rooms !== undefined && rooms !== null,
+      roomsIsArray: Array.isArray(rooms),
+      roomsLength: Array.isArray(rooms) ? rooms.length : 'N/A',
+      roomsType: typeof rooms
+    });
+
+    // ⚠️ Check if rooms is provided - if not, skip room processing
+    let hasRooms = rooms && Array.isArray(rooms) && rooms.length > 0;
+
+    if (rooms && !Array.isArray(rooms)) {
+      console.error(
+        `❌ Invalid rooms parameter. Expected array but got ${typeof rooms}:`,
+        rooms
+      );
+      return res.status(400).json(
+        generateErrorResponse(
+          "Bad Request",
+          `Invalid rooms format. Expected array of room bookings. Got ${typeof rooms}.`
+        )
+      );
+    }
+
+    if (!hasRooms) {
+      console.log(`ℹ️  No rooms specified in request. Skipping room pricing calculation. Returning available hotels for selection.`);
+    }
+
     for (const h of hotelsToCheck) {
       try {
         const hotel = await hotelCollection.findById(
@@ -124,24 +178,55 @@ const holidayPackageDetails = async (req, res) => {
         });
 
         // Check if hotel has rooms array
-        if (!Array.isArray(hotel.rooms) || hotel.rooms.length === 0) {
+        console.log(
+          `🔍 Day ${h.dayNo}: Checking rooms for hotel "${hotel.hotelName}":`,
+          `Type: ${typeof hotel.rooms}, isArray: ${Array.isArray(hotel.rooms)}, Value:`,
+          hotel.rooms
+        );
+
+        // Handle case where rooms might be stored as object instead of array
+        let hotelRooms = hotel.rooms;
+        if (typeof hotelRooms === 'object' && !Array.isArray(hotelRooms)) {
+          // If rooms is an object with room data, try to convert it to array
+          if (hotelRooms && Object.keys(hotelRooms).length > 0) {
+            hotelRooms = Object.values(hotelRooms);
+            console.warn(
+              `⚠️  Day ${h.dayNo}: Converted rooms from object to array`
+            );
+          } else {
+            hotelRooms = [];
+          }
+        }
+
+        if (!Array.isArray(hotelRooms) || hotelRooms.length === 0) {
           console.warn(
             `⚠️  Day ${h.dayNo}: Hotel "${hotel.hotelName}" has no rooms configured. Please add rooms to this hotel.`
           );
-          return res
-            .status(400)
-            .json(
-              generateErrorResponse(
-                "Bad Request",
-                `Hotel "${hotel.hotelName}" has no rooms configured. Please add rooms to this hotel and try again.`
-              )
-            );
+          // If rooms are provided by client, reject the request
+          if (hasRooms) {
+            return res
+              .status(400)
+              .json(
+                generateErrorResponse(
+                  "Bad Request",
+                  `Hotel "${hotel.hotelName}" has no rooms configured. Please add rooms to this hotel and try again.`
+                )
+              );
+          }
+          // If no rooms provided, just skip pricing for this hotel
+          continue;
+        }
+
+        // Only process room pricing if rooms were provided by client
+        if (!hasRooms) {
+          console.log(`ℹ️  Day ${h.dayNo}: Skipping room pricing (no rooms specified). Hotel available for selection.`);
+          continue;
         }
 
         for (const bookedRoom of rooms) {
           const { roomType, adults, children } = bookedRoom;
 
-          const availableRoom = hotel.rooms.find((room) => {
+          const availableRoom = hotelRooms.find((room) => {
             if (room.roomType === roomType) {
               return room.duration?.some((period) => {
                 const hotelStartDate = new Date(period.startDate);

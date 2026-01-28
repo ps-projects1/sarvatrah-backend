@@ -59,8 +59,11 @@ const register = async (req, res) => {
       { expiresIn: "10m" }   // OTP expires in 10 minutes
     );
 
-    // Send OTP via SMS
-    const smsResult = await sendOtpToPhone(mobilenumber, otp);
+    // Send OTP via SMS (format phone number with country code for Twilio)
+    const formattedPhone = mobilenumber.toString().startsWith('+')
+      ? mobilenumber.toString()
+      : `+91${mobilenumber}`;
+    const smsResult = await sendOtpToPhone(formattedPhone, otp);
     if (!smsResult.success) {
       return res.status(500).json({
         success: false,

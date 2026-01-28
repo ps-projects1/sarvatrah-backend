@@ -69,10 +69,10 @@ app.use(
       return callback(null, true);
     },
     credentials: true,
-    exposedHeaders: "*",
+    exposedHeaders: ["Content-Length", "X-Request-Id"],
     optionsSuccessStatus: 200,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
-    allowedHeaders: "*",
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "x-request-id"],
   })
 );
 

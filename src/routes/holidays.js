@@ -160,7 +160,17 @@ route.post("/package-list",generalLimiter, async (req, res, next) => {
               if (hotel) {
                 noOfHotels++;
                 const currentDate = moment();
-                const room = hotel.rooms.find((room) => {
+
+                // Ensure rooms is an array
+                let hotelRooms = hotel.rooms;
+                if (typeof hotelRooms === 'object' && !Array.isArray(hotelRooms)) {
+                  hotelRooms = Object.values(hotelRooms);
+                }
+                if (!Array.isArray(hotelRooms)) {
+                  hotelRooms = [];
+                }
+
+                const room = hotelRooms.find((room) => {
                   if (
                     room.duration[0] &&
                     room.duration[0].startDate &&
@@ -588,36 +598,75 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
     let hotelList = [];
     let hotelResult = [];
 
-    // Handle new package structure with hotel_id at day level
+    // Collect hotel IDs from the package's hotels array (added by admin)
+    let hotelIdsFromPackage = new Set();
+
     for (let day of packageInfo.itinerary) {
-      if (day?.hotel_id && day?.stay) {
-        try {
-          const hotel = await hotelCollection.findById(day.hotel_id);
-          if (!hotel) {
-            console.warn(`Hotel not found for ID: ${day.hotel_id}`);
-            continue;
+      if (day?.stay) {
+        // Add the default hotel_id
+        if (day.hotel_id) {
+          hotelIdsFromPackage.add(day.hotel_id.toString());
+        }
+
+        // Add hotels from the hotels[] array (added by admin in package)
+        if (day.hotels && Array.isArray(day.hotels) && day.hotels.length > 0) {
+          for (let hotelEntry of day.hotels) {
+            if (hotelEntry.hotel_id) {
+              hotelIdsFromPackage.add(hotelEntry.hotel_id.toString());
+            }
           }
-
-          console.log(`🔵 Fetching hotel options for ${hotel.hotelName}`, {
-            city: hotel.city,
-            hasRooms: Array.isArray(hotel.rooms),
-            roomsCount: Array.isArray(hotel.rooms) ? hotel.rooms.length : 0
-          });
-
-          const hotelAvailable = await hotelCollection.find({
-            city: hotel.city,
-          });
-          hotelList = hotelAvailable.sort(
-            (a, b) =>
-              (a.rooms?.[0]?.occupancyRates?.[0] || 0) - (b.rooms?.[0]?.occupancyRates?.[0] || 0)
-          );
-        } catch (error) {
-          console.error(`Error fetching hotel options for ${day.hotel_id}:`, error.message);
         }
       }
     }
 
-    const currentDate = new Date();
+    console.log(`🏨 Found ${hotelIdsFromPackage.size} hotels in package:`, Array.from(hotelIdsFromPackage));
+
+    // Fetch full hotel details for each hotel ID from the package
+    for (let hotelId of hotelIdsFromPackage) {
+      try {
+        const hotel = await hotelCollection.findById(hotelId);
+        if (hotel) {
+          hotelList.push(hotel);
+          console.log(`✅ Loaded hotel: ${hotel.hotelName} (${hotel.city})`);
+        } else {
+          console.warn(`⚠️ Hotel not found for ID: ${hotelId}`);
+        }
+      } catch (error) {
+        console.error(`Error fetching hotel ${hotelId}:`, error.message);
+      }
+    }
+
+    // Sort hotels by price
+    hotelList = hotelList.sort(
+      (a, b) =>
+        (a.rooms?.[0]?.occupancyRates?.[0] || 0) - (b.rooms?.[0]?.occupancyRates?.[0] || 0)
+    );
+
+    // Get travel date from query params or use today
+    let travelDate = new Date();
+    if (req.query.date) {
+      const dateStr = req.query.date;
+      console.log(`📅 Received date from query: ${dateStr}`);
+
+      // Handle multiple date formats
+      if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 2) {
+            // DD-MM-YYYY format
+            travelDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          } else if (parts[2].length === 2 && parts[0].length === 4) {
+            // YYYY-MM-DD format
+            travelDate = new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
+          }
+        }
+      } else if (dateStr.includes('/')) {
+        // Try to parse as-is (could be MM/DD/YYYY or DD/MM/YYYY)
+        travelDate = new Date(dateStr);
+      }
+    }
+
+    console.log(`📅 Using travel date for filtering:`, travelDate);
 
     for (let hotel of hotelList) {
       try {
@@ -625,6 +674,60 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
 
         // Ensure rooms is an array before processing
         const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : [];
+
+        // Filter rooms by travel date availability
+        const availableRooms = rooms.filter((vac) =>
+          vac.duration.some(
+            (dur) =>
+              travelDate >= new Date(dur.startDate) &&
+              travelDate <= new Date(dur.endDate)
+          )
+        );
+
+        console.log(`🏨 Hotel ${hotel.hotelName}: ${rooms.length} total rooms, ${availableRooms.length} available for travel date`);
+
+        // Include hotels even if no rooms available for the date (show all options)
+        const processedRooms = availableRooms.map((vac) => {
+          if (vac.roomType === "Standard") {
+            bashPrice = vac.occupancyRates[1];
+          }
+          let travellerPrice = 0;
+          for (let traveller of guestLists) {
+            if (traveller.adult === 1) {
+              travellerPrice += vac.occupancyRates[0];
+            }
+            if (traveller.adult === 2) {
+              travellerPrice += vac.occupancyRates[1];
+            }
+            if (traveller.adult === 3) {
+              travellerPrice += vac.occupancyRates[2];
+            }
+            if (traveller.cb) {
+              travellerPrice += vac.child?.childWithBedPrice || 0 * traveller.cb;
+            }
+            if (traveller.cwb) {
+              travellerPrice += vac.child?.childWithoutBedPrice || 0 * traveller.cwb;
+            }
+          }
+
+          return {
+            roomType: vac.roomType,
+            child: {
+              childWithBedPrice: vac.child?.childWithBedPrice || 0,
+              childWithoutBedPrice: vac.child?.childWithoutBedPrice || 0,
+            },
+            occupancyRates: vac.occupancyRates,
+            amenities: vac.amenities,
+            duration: vac.duration.map((dur) => ({
+              startDate: dur.startDate,
+              endDate: dur.endDate,
+              _id: dur._id,
+            })),
+            totalPrice: travellerPrice,
+            payable: travellerPrice - (bashPrice || 0),
+            _id: vac._id,
+          };
+        });
 
         hotelResult.push({
           _id: hotel._id,
@@ -643,55 +746,7 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
             path: img.path,
             mimetype: img.mimetype,
           })),
-          rooms: rooms
-            .filter((vac) =>
-              vac.duration.some(
-                (dur) =>
-                  currentDate >= new Date(dur.startDate) &&
-                  currentDate <= new Date(dur.endDate)
-              )
-            )
-            .map((vac) => {
-              if (vac.roomType === "Standard") {
-                bashPrice = vac.occupancyRates[1];
-              }
-              let travellerPrice = 0;
-              for (let traveller of guestLists) {
-                if (traveller.adult === 1) {
-                  travellerPrice += vac.occupancyRates[0];
-                }
-                if (traveller.adult === 2) {
-                  travellerPrice += vac.occupancyRates[1];
-                }
-                if (traveller.adult === 3) {
-                  travellerPrice += vac.occupancyRates[2];
-                }
-                if (traveller.cb) {
-                  travellerPrice += vac.child?.childWithBedPrice || 0 * traveller.cb;
-                }
-                if (traveller.cwb) {
-                  travellerPrice += vac.child?.childWithoutBedPrice || 0 * traveller.cwb;
-                }
-              }
-
-              return {
-                roomType: vac.roomType,
-                child: {
-                  childWithBedPrice: vac.child?.childWithBedPrice || 0,
-                  childWithoutBedPrice: vac.child?.childWithoutBedPrice || 0,
-                },
-                occupancyRates: vac.occupancyRates,
-                amenities: vac.amenities,
-                duration: vac.duration.map((dur) => ({
-                  startDate: dur.startDate,
-                  endDate: dur.endDate,
-                  _id: dur._id,
-                })),
-                totalPrice: travellerPrice,
-                payable: travellerPrice - (bashPrice || 0),
-                _id: vac._id,
-              };
-            }),
+          rooms: processedRooms,
           __v: hotel.__v,
         });
       } catch (error) {
@@ -699,6 +754,7 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
       }
     }
 
+    console.log(`📋 Returning ${hotelResult.length} hotels to client`);
     res.status(200).json(hotelResult);
   } catch (error) {
     next(error);
@@ -868,6 +924,7 @@ route.post(
         status,
         include,
         exclude,
+        basePrice,
         priceMarkup,
         partialPaymentPercentage,
         startCity,
@@ -964,6 +1021,7 @@ route.post(
         roomLimit: parseInt(roomLimit) || 1,
         include,
         exclude,
+        basePrice: parseFloat(basePrice) || 0,
         priceMarkup: parseFloat(priceMarkup) || 0,
         inflatedPercentage: parseFloat(inflatedPercentage) || 0,
         refundablePercentage: parseFloat(refundablePercentage) || 0,
@@ -1022,6 +1080,7 @@ route.put(
         status,
         include,
         exclude,
+        basePrice,
         priceMarkup,
         partialPaymentPercentage,
         startCity,
@@ -1120,6 +1179,7 @@ route.put(
       packageObj.roomLimit = parseInt(roomLimit) || packageObj.roomLimit;
       packageObj.include = include || packageObj.include;
       packageObj.exclude = exclude || packageObj.exclude;
+      packageObj.basePrice = parseFloat(basePrice) || packageObj.basePrice || 0;
       packageObj.priceMarkup = parseFloat(priceMarkup) || packageObj.priceMarkup;
       packageObj.inflatedPercentage = parseFloat(inflatedPercentage) || packageObj.inflatedPercentage;
       packageObj.refundablePercentage = parseFloat(refundablePercentage) || packageObj.refundablePercentage;
