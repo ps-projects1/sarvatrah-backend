@@ -47,6 +47,7 @@ connectDB();
 // Middleware
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3001",
   "http://localhost:3232",
   "http://localhost:5173",
   "https://v1.sarvatrah.com",
