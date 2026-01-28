@@ -79,7 +79,29 @@ const addHotel = async (req, res) => {
     }
 
     // Parse rooms
-    const rooms = JSON.parse(encryptedRooms);
+    let rooms;
+    try {
+      rooms = JSON.parse(encryptedRooms);
+
+      // Validate rooms format
+      if (!Array.isArray(rooms)) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            "Rooms must be an array of room objects"
+          )
+        );
+      }
+
+      console.log(`✅ Parsed rooms for new hotel:`, rooms);
+    } catch (parseError) {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          `Invalid rooms format: ${parseError.message}`
+        )
+      );
+    }
 
     // -------------------------------
     // 🔥 Upload images to Supabase

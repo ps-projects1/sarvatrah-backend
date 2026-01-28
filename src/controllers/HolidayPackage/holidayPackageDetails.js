@@ -123,10 +123,25 @@ const holidayPackageDetails = async (req, res) => {
           city: hotel.city,
         });
 
+        // Check if hotel has rooms array
+        if (!Array.isArray(hotel.rooms) || hotel.rooms.length === 0) {
+          console.warn(
+            `⚠️  Day ${h.dayNo}: Hotel "${hotel.hotelName}" has no rooms configured. Please add rooms to this hotel.`
+          );
+          return res
+            .status(400)
+            .json(
+              generateErrorResponse(
+                "Bad Request",
+                `Hotel "${hotel.hotelName}" has no rooms configured. Please add rooms to this hotel and try again.`
+              )
+            );
+        }
+
         for (const bookedRoom of rooms) {
           const { roomType, adults, children } = bookedRoom;
 
-          const availableRoom = hotel.rooms?.find((room) => {
+          const availableRoom = hotel.rooms.find((room) => {
             if (room.roomType === roomType) {
               return room.duration?.some((period) => {
                 const hotelStartDate = new Date(period.startDate);

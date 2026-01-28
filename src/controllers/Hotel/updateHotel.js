@@ -87,7 +87,29 @@ const updateHotel = async (req, res) => {
       }
     }
 
-    const rooms = encryptedRooms ? JSON.parse(encryptedRooms) : undefined;
+    let rooms;
+    try {
+      rooms = encryptedRooms ? JSON.parse(encryptedRooms) : undefined;
+
+      // Validate rooms format
+      if (rooms && !Array.isArray(rooms)) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            "Rooms must be an array of room objects"
+          )
+        );
+      }
+
+      console.log(`✅ Parsed rooms for hotel update:`, rooms);
+    } catch (parseError) {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          `Invalid rooms format: ${parseError.message}`
+        )
+      );
+    }
 
     // Handle removed images (delete from DB)
     if (removedImages) {
@@ -144,11 +166,18 @@ const updateHotel = async (req, res) => {
       updateData.active = active;
     }
 
+    console.log(`📝 Update data being sent to DB:`, updateData);
+
     const updatedHotel = await hotelCollection.findByIdAndUpdate(
       _id,
       { $set: updateData },
       { new: true, runValidators: true }
     );
+
+    console.log(
+      `✅ Hotel updated successfully. Rooms count: ${updatedHotel?.rooms?.length || 0}`
+    );
+    console.log(`📦 Updated hotel rooms:`, updatedHotel?.rooms);
 
     // Send email if status changed
     if (activeChanged) {
