@@ -316,14 +316,22 @@ route.post("/package/details/:id",generalLimiter, async (req, res, next) => {
       if (day?.hotel_id && day?.stay) {
         try {
           let hotelData = await hotelCollection.findById(day.hotel_id);
-          if (!hotelData) continue;
+          if (!hotelData) {
+            console.warn(`Hotel not found: ${day.hotel_id}`);
+            continue;
+          }
+
+          console.log(`🔵 Processing hotel ${hotelData.hotelName}:`, {
+            hasRooms: Array.isArray(hotelData.rooms),
+            roomsCount: Array.isArray(hotelData.rooms) ? hotelData.rooms.length : 0
+          });
 
           // Fetch All Hotels in the Same City
           let hotelList = await hotelCollection.find({ city: hotelData?.city });
           availableHotels.push({ city: hotelData?.city, hotels: hotelList });
 
           // Process rooms if they exist
-          if (Array.isArray(hotelData?.rooms)) {
+          if (Array.isArray(hotelData?.rooms) && hotelData.rooms.length > 0) {
             for (let roomData of hotelData.rooms) {
               if (roomData.roomType === "Standard") {
                 const [dayNum, month, year] = body_data?.travelStartDate
@@ -341,6 +349,8 @@ route.post("/package/details/:id",generalLimiter, async (req, res, next) => {
                 }
               }
             }
+          } else {
+            console.warn(`Hotel ${hotelData.hotelName} has no rooms defined`);
           }
         } catch (error) {
           console.error(`Error processing hotel ${day.hotel_id}:`, error.message);
@@ -581,8 +591,19 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
     // Handle new package structure with hotel_id at day level
     for (let day of packageInfo.itinerary) {
       if (day?.hotel_id && day?.stay) {
-        const hotel = await hotelCollection.findById(day.hotel_id);
-        if (hotel) {
+        try {
+          const hotel = await hotelCollection.findById(day.hotel_id);
+          if (!hotel) {
+            console.warn(`Hotel not found for ID: ${day.hotel_id}`);
+            continue;
+          }
+
+          console.log(`🔵 Fetching hotel options for ${hotel.hotelName}`, {
+            city: hotel.city,
+            hasRooms: Array.isArray(hotel.rooms),
+            roomsCount: Array.isArray(hotel.rooms) ? hotel.rooms.length : 0
+          });
+
           const hotelAvailable = await hotelCollection.find({
             city: hotel.city,
           });
@@ -590,6 +611,8 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
             (a, b) =>
               (a.rooms?.[0]?.occupancyRates?.[0] || 0) - (b.rooms?.[0]?.occupancyRates?.[0] || 0)
           );
+        } catch (error) {
+          console.error(`Error fetching hotel options for ${day.hotel_id}:`, error.message);
         }
       }
     }
@@ -906,6 +929,7 @@ route.post(
 
       try {
         itinerary = JSON.parse(req.body.itinerary || "[]");
+        console.log("🔵 [ITINERARY DEBUG] Parsed itinerary:", JSON.stringify(itinerary, null, 2));
         destinationCities = JSON.parse(destinationCity || "[]");
         availableVehicles = JSON.parse(req.body.availableVehicle || "[]");
       } catch (err) {

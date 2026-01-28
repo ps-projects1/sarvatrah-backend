@@ -74,6 +74,21 @@ city: {
     transport: transportSchema,
     placesToVisit: [String],
     activities: [activitySchema],
+    hotels: [
+      {
+        hotel_id: {
+          type: dbs.Schema.Types.ObjectId,
+          ref: "Hotel",
+        },
+        hotelName: String,
+        state: String,
+        city: String,
+        pricePerNight: Number,
+        starRating: String,
+        address: String,
+      },
+      { _id: false }
+    ],
     notes: String,
   },
   { _id: false }
