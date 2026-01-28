@@ -798,7 +798,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const uploads = multer({ 
+const uploads = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -857,25 +857,22 @@ route.post(
       const themeFile = req.files?.themeImage?.[0];
       const additionalFiles = req.files?.files || [];
 
-      if (!themeFile) {
-        return res.status(400).json({
-          success: false,
-          message: "Theme image is required"
-        });
+      let themeImg = null;
+
+      // Upload theme image to Supabase (optional)
+      if (themeFile) {
+        const themeImgUrl = await uploadToSupabase(
+          themeFile.path,
+          themeFile.originalname,
+          "holiday/theme"
+        );
+
+        themeImg = {
+          filename: themeFile.filename,
+          path: themeImgUrl, // replace local path with Supabase URL
+          mimetype: themeFile.mimetype
+        };
       }
-
-      // Upload theme image to Supabase
-      const themeImgUrl = await uploadToSupabase(
-        themeFile.path,
-        themeFile.originalname,
-        "holiday/theme"
-      );
-
-      const themeImg = {
-        filename: themeFile.filename,
-        path: themeImgUrl, // replace local path with Supabase URL
-        mimetype: themeFile.mimetype
-      };
 
       // Upload additional files to Supabase
       const images = [];
