@@ -205,27 +205,65 @@ const addHolidayPackage = async (req, res) => {
           );
       }
     }
-    // Check default selected hotel
+    // Validate hotel selections from admin
     for (const item of itinerary) {
-      
       if (item.stay) {
-        const existingDefaultHotel = await hotelCollection.findOne({
-          state: item.state,
-          city: item.city,
-          defaultSelected: true,
-        });
+        // If admin provided a hotel_id, validate it exists and is active
+        if (item.hotel_id) {
+          const hotel = await hotelCollection.findById(item.hotel_id);
 
-        if (!existingDefaultHotel) {
-          return res
-            .status(404)
-            .json(
+          if (!hotel) {
+            return res.status(400).json(
               generateErrorResponse(
-                `Cannot found default selected hotel for ${item.state}, ${item.city}`
+                `Hotel not found for day ${item.dayNo}. Please select a valid hotel.`
               )
             );
+          }
+
+          if (!hotel.active) {
+            return res.status(400).json(
+              generateErrorResponse(
+                `Hotel "${hotel.hotelName}" is inactive for day ${item.dayNo}. Please select an active hotel.`
+              )
+            );
+          }
+
+          // Validate location match
+          if (hotel.state !== item.state || hotel.city !== item.city) {
+            return res.status(400).json(
+              generateErrorResponse(
+                `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${item.state}, ${item.city}). Please select a hotel from the correct location.`
+              )
+            );
+          }
+
+          // Keep admin's selection - don't override
+          selectedHotel = item.hotel_id;
+          console.log(
+            `✅ Day ${item.dayNo}: Using admin-selected hotel: ${hotel.hotelName} (${hotel._id})`
+          );
+        } else {
+          // Fallback: If admin didn't select hotel, use default hotel
+          const existingDefaultHotel = await hotelCollection.findOne({
+            state: item.state,
+            city: item.city,
+            defaultSelected: true,
+          });
+
+          if (!existingDefaultHotel) {
+            return res.status(400).json(
+              generateErrorResponse(
+                `No hotel selected for day ${item.dayNo} in ${item.state}, ${item.city}. Please select a hotel.`
+              )
+            );
+          }
+
+          selectedHotel = existingDefaultHotel._id;
+          item.hotel_id = selectedHotel;
+          console.log(
+            `ℹ️  Day ${item.dayNo}: No hotel selected, using default: ${existingDefaultHotel.hotelName} (${existingDefaultHotel._id})`
+          );
         }
-        selectedHotel = existingDefaultHotel._id;        
-        item.hotel_id = selectedHotel;
       }
     }
 

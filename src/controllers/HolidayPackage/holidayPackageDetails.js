@@ -54,12 +54,54 @@ const holidayPackageDetails = async (req, res) => {
     // Calculate package price
     let packagePrice = 0;
 
-    // Decide which hotels to use: user provided or default itinerary
-    const hotelsToCheck =
-      Array.isArray(hotels) && hotels.length > 0
-        ? hotels.map((h) => ({ hotel_id: h })) // normalize structure
-        : holidayPackages.itinerary.filter((i) => i.stay && i.hotel_id);
-    console.log(hotelsToCheck);
+    // Build hotel list based on user selection or defaults
+    const hotelsToCheck = [];
+    const selectedHotels = []; // Track what hotels were actually used
+
+    for (const day of holidayPackages.itinerary) {
+      if (!day.stay) continue;
+
+      // Check if user wants to override hotel for this day
+      const userSelectedHotelId =
+        Array.isArray(hotels) && hotels.length > 0
+          ? hotels.find((h) => h.dayNo === day.dayNo)?.hotel_id
+          : null;
+
+      if (userSelectedHotelId) {
+        // Validate user's selection is in available hotels array
+        const isValidHotel = day.hotels?.some((h) =>
+          String(h.hotel_id) === String(userSelectedHotelId)
+        );
+
+        if (!isValidHotel) {
+          return res.status(400).json(
+            generateErrorResponse(
+              "Bad Request",
+              `Invalid hotel selection for day ${day.dayNo}. Hotel not available for this day.`
+            )
+          );
+        }
+
+        hotelsToCheck.push({
+          dayNo: day.dayNo,
+          hotel_id: userSelectedHotelId,
+        });
+
+        console.log(
+          `✨ Day ${day.dayNo}: Using client-selected hotel: ${userSelectedHotelId}`
+        );
+      } else {
+        // Use default hotel_id from package
+        hotelsToCheck.push({
+          dayNo: day.dayNo,
+          hotel_id: day.hotel_id,
+        });
+
+        console.log(
+          `ℹ️  Day ${day.dayNo}: Using default hotel: ${day.hotel_id}`
+        );
+      }
+    }
 
     for (const h of hotelsToCheck) {
       try {
@@ -67,14 +109,26 @@ const holidayPackageDetails = async (req, res) => {
           h.hotel_id,
           "-__v -createdAt -updatedAt"
         );
-        if (!hotel) continue;
+        if (!hotel) {
+          console.warn(`Hotel not found: ${h.hotel_id}`);
+          continue;
+        }
+
+        // Track selected hotel
+        selectedHotels.push({
+          dayNo: h.dayNo,
+          hotel_id: h.hotel_id,
+          hotelName: hotel.hotelName,
+          state: hotel.state,
+          city: hotel.city,
+        });
 
         for (const bookedRoom of rooms) {
           const { roomType, adults, children } = bookedRoom;
 
-          const availableRoom = hotel.rooms.find((room) => {
+          const availableRoom = hotel.rooms?.find((room) => {
             if (room.roomType === roomType) {
-              return room.duration.some((period) => {
+              return room.duration?.some((period) => {
                 const hotelStartDate = new Date(period.startDate);
                 const hotelEndDate = new Date(period.endDate);
                 return (
@@ -111,9 +165,12 @@ const holidayPackageDetails = async (req, res) => {
             }
 
             console.log(
-              `Added ${adultRate} + children for ${roomType} in ${hotel.hotelName}`
+              `✅ Day ${h.dayNo}: Added ${adultRate} + children for ${roomType} in ${hotel.hotelName}`
             );
           } else {
+            console.warn(
+              `⚠️  Day ${h.dayNo}: No available ${roomType} room from ${startDate} to ${endDate} in hotel: ${hotel.hotelName}`
+            );
             return res
               .status(400)
               .json(
@@ -122,10 +179,6 @@ const holidayPackageDetails = async (req, res) => {
                   `No available ${roomType} room from ${startDate} to ${endDate} in hotel: ${hotel.hotelName}`
                 )
               );
-            // Or just log and continue
-            // console.warn(
-            //   `No available ${roomType} room from ${startDate} to ${endDate} in hotel: ${hotel.hotelName}`
-            // );
           }
         }
       } catch (error) {
@@ -184,7 +237,12 @@ const holidayPackageDetails = async (req, res) => {
       ...holidayPackages,
       packagePrice,
       inflatedPercentage,
+      selectedHotels, // Show which hotels were used for pricing
     };
+
+    console.log(
+      `✅ Package pricing complete: ${packagePrice} (with ${selectedHotels.length} hotels)`
+    );
 
     return res
       .status(200)
