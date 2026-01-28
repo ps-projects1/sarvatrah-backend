@@ -311,35 +311,39 @@ route.post("/package/details/:id",generalLimiter, async (req, res, next) => {
       }
     }
 
-    for (let itineraryData of packageInfo?.itinerary) {
-      for (let dayItineraryData of itineraryData?.dayItinerary) {
-        if (dayItineraryData?.type === "Hotel") {
-          let hotelData = await hotelCollection.findById(
-            dayItineraryData?.iti_id
-          );
+    // Handle new package structure with hotel_id at day level
+    for (let day of packageInfo?.itinerary) {
+      if (day?.hotel_id && day?.stay) {
+        try {
+          let hotelData = await hotelCollection.findById(day.hotel_id);
           if (!hotelData) continue;
 
           // Fetch All Hotels in the Same City
           let hotelList = await hotelCollection.find({ city: hotelData?.city });
           availableHotels.push({ city: hotelData?.city, hotels: hotelList });
 
-          for (let roomData of hotelData?.rooms || []) {
-            if (roomData.roomType === "Standard") {
-              const [day, month, year] = body_data?.travelStartDate
-                .split("-")
-                .map(Number);
-              const dateToCheck = new Date(year, month - 1, day);
-              const startDate = new Date(roomData.duration[0]?.startDate);
-              const endDate = new Date(roomData.duration[0]?.endDate);
+          // Process rooms if they exist
+          if (Array.isArray(hotelData?.rooms)) {
+            for (let roomData of hotelData.rooms) {
+              if (roomData.roomType === "Standard") {
+                const [dayNum, month, year] = body_data?.travelStartDate
+                  .split("-")
+                  .map(Number);
+                const dateToCheck = new Date(year, month - 1, dayNum);
+                const startDate = new Date(roomData.duration[0]?.startDate);
+                const endDate = new Date(roomData.duration[0]?.endDate);
 
-              if (dateToCheck >= startDate && dateToCheck <= endDate) {
-                hotelTotalPrice +=
-                  roomData.occupancyRates?.[body_data.adult - 1] || 0;
-                hotelTotalPrice += roomData?.child?.childWithBedPrice || 0;
-                hotelTotalPrice += roomData?.child?.childWithoutBedPrice || 0;
+                if (dateToCheck >= startDate && dateToCheck <= endDate) {
+                  hotelTotalPrice +=
+                    roomData.occupancyRates?.[body_data.adult - 1] || 0;
+                  hotelTotalPrice += roomData?.child?.childWithBedPrice || 0;
+                  hotelTotalPrice += roomData?.child?.childWithoutBedPrice || 0;
+                }
               }
             }
           }
+        } catch (error) {
+          console.error(`Error processing hotel ${day.hotel_id}:`, error.message);
         }
       }
     }
@@ -574,19 +578,18 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
     let hotelList = [];
     let hotelResult = [];
 
-    for (let data of packageInfo.itinerary) {
-      for (let act of data.dayItinerary) {
-        if (act.type === "Hotel") {
-          const hotel = await hotelCollection.findById(act.iti_id);
-          if (hotel) {
-            const hotelAvailable = await hotelCollection.find({
-              city: hotel.city,
-            });
-            hotelList = hotelAvailable.sort(
-              (a, b) =>
-                a.rooms[0].occupancyRates[0] - b.rooms[0].occupancyRates[0]
-            );
-          }
+    // Handle new package structure with hotel_id at day level
+    for (let day of packageInfo.itinerary) {
+      if (day?.hotel_id && day?.stay) {
+        const hotel = await hotelCollection.findById(day.hotel_id);
+        if (hotel) {
+          const hotelAvailable = await hotelCollection.find({
+            city: hotel.city,
+          });
+          hotelList = hotelAvailable.sort(
+            (a, b) =>
+              (a.rooms?.[0]?.occupancyRates?.[0] || 0) - (b.rooms?.[0]?.occupancyRates?.[0] || 0)
+          );
         }
       }
     }
@@ -594,76 +597,83 @@ route.get("/package/iti/hotel/update/:id",generalLimiter, async (req, res, next)
     const currentDate = new Date();
 
     for (let hotel of hotelList) {
-      let bashPrice;
-      hotelResult.push({
-        _id: hotel._id,
-        objectType: hotel.objectType,
-        hotelType: hotel.hotelType,
-        hotelName: hotel.hotelName,
-        address: hotel.address,
-        state: hotel.state,
-        city: hotel.city,
-        pincode: hotel.pincode,
-        phoneNumber: hotel.phoneNumber,
-        email: hotel.email,
-        contactPerson: hotel.contactPerson,
-        imgs: hotel.imgs.map((img) => ({
-          filename: img.filename,
-          path: img.path,
-          mimetype: img.mimetype,
-        })),
-        rooms: hotel.rooms
-          .filter((vac) =>
-            vac.duration.some(
-              (dur) =>
-                currentDate >= new Date(dur.startDate) &&
-                currentDate <= new Date(dur.endDate)
-            )
-          )
-          .map((vac) => {
-            if (vac.roomType === "Standard") {
-              bashPrice = vac.occupancyRates[1];
-            }
-            let travellerPrice = 0;
-            for (let traveller of guestLists) {
-              if (traveller.adult === 1) {
-                travellerPrice += vac.occupancyRates[0];
-              }
-              if (traveller.adult === 2) {
-                travellerPrice += vac.occupancyRates[1];
-              }
-              if (traveller.adult === 3) {
-                travellerPrice += vac.occupancyRates[2];
-              }
-              if (traveller.cb) {
-                travellerPrice += vac.child.childWithBedPrice * traveller.cb;
-              }
-              if (traveller.cwb) {
-                travellerPrice +=
-                  vac.child.childWithoutBedPrice * traveller.cwb;
-              }
-            }
+      try {
+        let bashPrice;
 
-            return {
-              roomType: vac.roomType,
-              child: {
-                childWithBedPrice: vac.child.childWithBedPrice,
-                childWithoutBedPrice: vac.child.childWithoutBedPrice,
-              },
-              occupancyRates: vac.occupancyRates,
-              amenities: vac.amenities,
-              duration: vac.duration.map((dur) => ({
-                startDate: dur.startDate,
-                endDate: dur.endDate,
-                _id: dur._id,
-              })),
-              totalPrice: travellerPrice,
-              payable: travellerPrice - bashPrice,
-              _id: vac._id,
-            };
-          }),
-        __v: hotel.__v,
-      });
+        // Ensure rooms is an array before processing
+        const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : [];
+
+        hotelResult.push({
+          _id: hotel._id,
+          objectType: hotel.objectType,
+          hotelType: hotel.hotelType,
+          hotelName: hotel.hotelName,
+          address: hotel.address,
+          state: hotel.state,
+          city: hotel.city,
+          pincode: hotel.pincode,
+          phoneNumber: hotel.phoneNumber,
+          email: hotel.email,
+          contactPerson: hotel.contactPerson,
+          imgs: (hotel.imgs || []).map((img) => ({
+            filename: img.filename,
+            path: img.path,
+            mimetype: img.mimetype,
+          })),
+          rooms: rooms
+            .filter((vac) =>
+              vac.duration.some(
+                (dur) =>
+                  currentDate >= new Date(dur.startDate) &&
+                  currentDate <= new Date(dur.endDate)
+              )
+            )
+            .map((vac) => {
+              if (vac.roomType === "Standard") {
+                bashPrice = vac.occupancyRates[1];
+              }
+              let travellerPrice = 0;
+              for (let traveller of guestLists) {
+                if (traveller.adult === 1) {
+                  travellerPrice += vac.occupancyRates[0];
+                }
+                if (traveller.adult === 2) {
+                  travellerPrice += vac.occupancyRates[1];
+                }
+                if (traveller.adult === 3) {
+                  travellerPrice += vac.occupancyRates[2];
+                }
+                if (traveller.cb) {
+                  travellerPrice += vac.child?.childWithBedPrice || 0 * traveller.cb;
+                }
+                if (traveller.cwb) {
+                  travellerPrice += vac.child?.childWithoutBedPrice || 0 * traveller.cwb;
+                }
+              }
+
+              return {
+                roomType: vac.roomType,
+                child: {
+                  childWithBedPrice: vac.child?.childWithBedPrice || 0,
+                  childWithoutBedPrice: vac.child?.childWithoutBedPrice || 0,
+                },
+                occupancyRates: vac.occupancyRates,
+                amenities: vac.amenities,
+                duration: vac.duration.map((dur) => ({
+                  startDate: dur.startDate,
+                  endDate: dur.endDate,
+                  _id: dur._id,
+                })),
+                totalPrice: travellerPrice,
+                payable: travellerPrice - (bashPrice || 0),
+                _id: vac._id,
+              };
+            }),
+          __v: hotel.__v,
+        });
+      } catch (error) {
+        console.error(`Error processing hotel ${hotel?.hotelName}:`, error.message);
+      }
     }
 
     res.status(200).json(hotelResult);
