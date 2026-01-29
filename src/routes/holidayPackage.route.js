@@ -4,6 +4,7 @@ const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/
 const {
   getHolidayPackage,
   addHolidayPackage,
+  deleteHolidayPackage,
   holidayPackageDetails,
   userHolidayPackageList
 } = require("../controllers/HolidayPackage/holidayPackage.controller");
@@ -23,5 +24,8 @@ route.post(
   limitIfFiles(uploadLimiter), // only limit if files exist
   addHolidayPackage
 );
+
+// Delete holiday package route
+route.delete("/delete-holiday-package/:id", generalLimiter, deleteHolidayPackage);
 
 module.exports = route;

@@ -1,7 +1,4 @@
-/**
- * Migration script to add basePrice field to existing holiday packages
- * Run this once: node scripts/migrateBasePrice.js
- */
+
 
 const mongoose = require("mongoose");
 require("dotenv").config();
@@ -17,7 +14,6 @@ async function migrate() {
     const db = mongoose.connection.db;
     const collection = db.collection("holidaypackages");
 
-    // Update all documents that don't have basePrice field
     const result = await collection.updateMany(
       { basePrice: { $exists: false } },
       { $set: { basePrice: 0 } }
@@ -25,7 +21,6 @@ async function migrate() {
 
     console.log(`Updated ${result.modifiedCount} packages with basePrice: 0`);
 
-    // Also update any documents where basePrice is null
     const result2 = await collection.updateMany(
       { basePrice: null },
       { $set: { basePrice: 0 } }
