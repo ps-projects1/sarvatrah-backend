@@ -116,7 +116,8 @@ const addHotel = async (req, res) => {
           const fileUrl = await uploadToSupabase(
             file.path,           // local file saved by multer
             file.originalname,    // actual file name
-            "hotels"              // Supabase folder
+            "hotels",             // Supabase folder
+            "hotel-images"        // Supabase bucket
           );
 
           imgs.push({

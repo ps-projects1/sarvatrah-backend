@@ -60,7 +60,8 @@ route.post(
         const fileUrl = await uploadToSupabase(
           file.path,
           file.originalname,
-          "vehicle/gallery"
+          "vehicle/gallery",
+          "hotel-images"  // bucket name
         );
 
         images.push({
@@ -159,7 +160,8 @@ route.post(
         const fileUrl = await uploadToSupabase(
           file.path,
           file.originalname,
-          "hotel/gallery"
+          "hotel/gallery",
+          "hotel-images"  // bucket name
         );
 
         imgs.push({

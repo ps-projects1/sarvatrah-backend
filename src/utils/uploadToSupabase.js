@@ -2,11 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const supabase = require("../config/supabase");
 
-async function uploadToSupabase(localFilePath, originalName, folder = "uploads") {
+async function uploadToSupabase(localFilePath, originalName, folder = "uploads", bucketName = "hotel-images") {
   try {
     console.log(`[Supabase] Starting upload for: ${originalName}`);
     console.log(`[Supabase] Local path: ${localFilePath}`);
     console.log(`[Supabase] Folder: ${folder}`);
+    console.log(`[Supabase] Bucket: ${bucketName}`);
 
     // Check if file exists
     if (!fs.existsSync(localFilePath)) {
@@ -23,7 +24,7 @@ async function uploadToSupabase(localFilePath, originalName, folder = "uploads")
 
     // Upload to Supabase storage
     const { data, error } = await supabase.storage
-      .from("sarvatrah-bucket") // replace with your bucket name
+      .from(bucketName)
       .upload(uniqueName, fileBuffer, {
         upsert: true,
         contentType: `image/${ext.replace(".", "")}`
@@ -38,7 +39,7 @@ async function uploadToSupabase(localFilePath, originalName, folder = "uploads")
 
     // Get public URL
     const { data: publicData } = supabase.storage
-      .from("sarvatrah-bucket")
+      .from(bucketName)
       .getPublicUrl(uniqueName);
 
     if (!publicData || !publicData.publicUrl) {

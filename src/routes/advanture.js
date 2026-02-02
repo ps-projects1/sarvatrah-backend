@@ -48,7 +48,12 @@ route.post(
       // 🔥 Upload theme image to Supabase
       // -------------------------------
       const themeFile = req.files.file[0];
-      const themeImgUrl = await uploadToSupabase(themeFile.path, themeFile.originalname, "adventure/theme");
+      const themeImgUrl = await uploadToSupabase(
+        themeFile.path, 
+        themeFile.originalname, 
+        "adventure/theme",
+        "hotel-images"  // bucket name
+      );
 
       const themeImg = {
         filename: themeFile.originalname,
