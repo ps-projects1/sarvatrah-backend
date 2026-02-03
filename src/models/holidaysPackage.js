@@ -25,8 +25,8 @@ const transportSchema = new dbs.Schema(
   {
     type: {
       type: String,
-      enum: ["Private Cab", "Flight", "Train", "Bus", "Cruise", "Other"],
-      required: true,
+      enum: ["Private Cab", "Flight", "Train", "Bus", "Cruise", "Other", ""],  // ✅ Added empty string to enum
+      default: "",  // ✅ Default to empty string
     },
     details: String,
   },
@@ -39,7 +39,7 @@ const dayItinerarySchema = new dbs.Schema(
     dayNo: { type: Number, required: true, min: 1 },
     title: String,
     subtitle: String,
-    description: { type: String, required: true },
+    description: { type: String, required: false },  // ✅ Changed to optional
     stay: { type: Boolean, default: false },
     hotel_id : {
       type: dbs.Schema.Types.ObjectId,
