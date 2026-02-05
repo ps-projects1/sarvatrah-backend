@@ -5,6 +5,7 @@ const {
   getHolidayPackage,
   addHolidayPackage,
   deleteHolidayPackage,
+  updateHolidayPackage,
   holidayPackageDetails,
   userHolidayPackageList
 } = require("../controllers/HolidayPackage/holidayPackage.controller");
@@ -23,6 +24,17 @@ route.post(
   ]),
   limitIfFiles(uploadLimiter), // only limit if files exist
   addHolidayPackage
+);
+
+// Update holiday package route
+route.put(
+  "/update-holiday-package",
+  upload.fields([
+    { name: "themeImg", maxCount: 1 },
+    { name: "packageImages", maxCount: 10 },
+  ]),
+  limitIfFiles(uploadLimiter),
+  updateHolidayPackage
 );
 
 // Delete holiday package route

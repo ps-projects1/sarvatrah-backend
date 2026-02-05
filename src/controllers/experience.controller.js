@@ -52,8 +52,19 @@ const updateExperience = async (req, res) => {
   const requestBody = req.body || {};
   const uploadedFilesInput = req.files || [];
 
-  console.log(requestBody, "body");
-  console.log(uploadedFilesInput, "files");
+  console.log("=== UPDATE EXPERIENCE DEBUG ===");
+  console.log("ID:", id);
+  console.log("Body:", requestBody);
+  console.log("Files count:", uploadedFilesInput.length);
+  if (uploadedFilesInput.length > 0) {
+    console.log("Files:", uploadedFilesInput.map(f => ({
+      fieldname: f.fieldname,
+      originalname: f.originalname,
+      mimetype: f.mimetype,
+      size: f.size
+    })));
+  }
+  console.log("===============================");
 
   // Same logic, different formatting
   const keysToUpdate = Object.keys(requestBody).filter((field) => {
@@ -61,7 +72,10 @@ const updateExperience = async (req, res) => {
   });
 
   if (keysToUpdate.length === 0 && uploadedFilesInput.length === 0) {
-    return res.status(400).json({ error: "No data to update" });
+    return res.status(400).json({ 
+      error: "No data to update",
+      message: "Please provide either body fields or files to upload"
+    });
   }
 
   // New variable name → same behavior
@@ -103,8 +117,20 @@ const updateExperience = async (req, res) => {
         console.error(
           "Supabase upload failed for file:",
           file.originalname,
-          uploadErr
+          uploadErr.message
         );
+        
+        // Fallback to local path if Supabase fails
+        const convertPath = (path) =>
+          path.replace(/\\/g, "/").replace("public/", "");
+        
+        processedFiles.push({
+          filename: file.originalname,
+          path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
+          mimetype: file.mimetype,
+        });
+        
+        console.log(`✅ Using local path fallback for: ${file.originalname}`);
       }
     }
 
@@ -114,7 +140,14 @@ const updateExperience = async (req, res) => {
   }
 
   if (Object.keys(updatePayload).length === 0) {
-    return res.status(400).json({ error: "No valid data to update" });
+    return res.status(400).json({ 
+      error: "No valid data to update",
+      debug: {
+        bodyKeys: Object.keys(requestBody),
+        filesCount: uploadedFilesInput.length,
+        keysToUpdate: keysToUpdate
+      }
+    });
   }
 
   try {
