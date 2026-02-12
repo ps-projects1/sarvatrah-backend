@@ -26,7 +26,7 @@ const getPilgrimagePackage = async (req, res) => {
       if (!pilgrimagePackages.length) {
         return res
           .status(404)
-          .json(generateErrorResponse("Not Found", "No holiday packages found"));
+          .json(generateErrorResponse("Not Found", "No pilgrimage packages found"));
       }
 
       pagination = {

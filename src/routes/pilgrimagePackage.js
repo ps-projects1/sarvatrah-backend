@@ -3,12 +3,11 @@ const upload = require("../config/uploadConfig");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const {
   getPilgrimagePackage,
-  addPilgrimagePackage,
+  addPilrimagePackage,
   deletePilgrimagePackage,
   updatePilgrimagePackage,
   pilgrimagePackageDetails,
-  userPilgrimagePackageList,
-  generatePilgrimagePackagePdf
+  userPilgrimagePackageList
 } = require("../controllers/Pilgrimage/pilgrimage.controller");
 
 // Routes with generalLimiter
@@ -24,7 +23,7 @@ route.post(
     { name: "packageImages", maxCount: 10 },
   ]),
   limitIfFiles(uploadLimiter), // only limit if files exist
-  addPilgrimagePackage
+  addPilrimagePackage
 );
 
 // Update holiday package route

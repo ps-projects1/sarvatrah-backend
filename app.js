@@ -37,7 +37,8 @@ const categoryRoutes = require("./src/routes/categories");
 const refundRoutes = require("./src/routes/refunds");
 const otpless = require("./src/routes/otpless");
 const profileRoutes = require("./src/routes/profile");
-
+const pilgrimageRoutes = require("./src/routes/pilgrimagePackage");
+const testimonials = require("./src/routes/testimonial")
 dotenv.config();
 const app = express();
 const secretKey = process.env.SECRET_KEY;
@@ -110,8 +111,9 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/auth",otpless);
 app.use("/api/profile", profileRoutes);
-
+app.use("/api/pilgrimagePackage",pilgrimageRoutes)
 app.use("/api/footer", footerRoutes);
+app.use("/api/testimonials",testimonials)
 
 
 
