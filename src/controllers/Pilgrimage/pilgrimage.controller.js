@@ -1,4 +1,4 @@
-const { addPilgrimagePackage } = require("./addPilgrimage");
+const { addPilrimagePackage } = require("./addPilgrimage");
 const { deletePilgrimagePackage } = require("./deletePilgimage");
 const { getPilgrimagePackage } = require("./getPilgrimage");
 const { updatePilgrimagePackage } = require("./updatePilgrimPackage");
@@ -8,7 +8,7 @@ const { generatePilgrimagePackagePdf } = require("./pilgrimPackagePdf");
 
 module.exports = {
   getPilgrimagePackage,
-  addPilgrimagePackage,
+  addPilrimagePackage,
   deletePilgrimagePackage,
   updatePilgrimagePackage,
   pilgrimagePackageDetails,

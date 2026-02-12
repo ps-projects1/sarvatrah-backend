@@ -346,4 +346,4 @@ const addPilrimagePackage = async (req, res) => {
   }
 };
 
-module.exports = { addPilgrimagePackage };
+module.exports = { addPilrimagePackage };
