@@ -2,6 +2,7 @@ const multer = require("multer");
 
 const storage = multer.diskStorage({
   destination: function (req, file, callback) {
+    console.log("req",req)
     if (req.path === "/vehicle") {
       console.log("working");
       callback(null, "public/data/vehicle");
@@ -29,6 +30,11 @@ const storage = multer.diskStorage({
     } else if (req.baseUrl === "/experience") {
       callback(null, "public/data/activities");
     }
+      else if (req.baseUrl === "/api/testimonials") {
+        console.log("test")
+    callback(null, "public/data/testimonials");
+  }
+
   },
   filename: function (req, file, callback) {
     console.log("fileName images000000000000------------------------------");
