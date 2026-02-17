@@ -2,10 +2,11 @@ const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
-const { PilgrimagePackage } = require("../../models/pilgrimage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const Joi = require("joi");
+const uploadToSupabase = require("../../utils/uploadToSupabase");
 
 const addPilrimagePackage = async (req, res) => {
   try {
@@ -152,7 +153,7 @@ const addPilrimagePackage = async (req, res) => {
     }
 
     // check if the package already exists with package name, selectType and uniqueId
-    const existingPackage = await PilgrimagePackage.findOne({
+    const existingPackage = await Pilgrimage.findOne({
       packageName: packageName,
       selectType: selectType,
       uniqueId: uniqueId,
@@ -212,9 +213,11 @@ const addPilrimagePackage = async (req, res) => {
     // Validate hotel selections from admin
     for (const item of itinerary) {
       if (item.stay) {
-        // If admin provided a hotel_id, validate it exists and is active
-        if (item.hotel_id) {
-          const hotel = await hotelCollection.findById(item.hotel_id);
+        // Support both hotel_id (direct) and hotels[] array (from admin UI)
+        const resolvedHotelId = item.hotel_id || (item.hotels && item.hotels.length > 0 ? item.hotels[0].hotel_id : null);
+
+        if (resolvedHotelId) {
+          const hotel = await hotelCollection.findById(resolvedHotelId);
 
           if (!hotel) {
             return res.status(400).json(
@@ -232,32 +235,26 @@ const addPilrimagePackage = async (req, res) => {
             );
           }
 
-          // Validate location match
-          if (hotel.state !== item.state || hotel.city !== item.city) {
-            return res.status(400).json(
-              generateErrorResponse(
-                `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${item.state}, ${item.city}). Please select a hotel from the correct location.`
-              )
-            );
-          }
-
-          // Keep admin's selection - don't override
-          selectedHotel = item.hotel_id;
+          // Keep admin's selection
+          selectedHotel = resolvedHotelId;
+          item.hotel_id = resolvedHotelId;
           console.log(
             `✅ Day ${item.dayNo}: Using admin-selected hotel: ${hotel.hotelName} (${hotel._id})`
           );
         } else {
-          // Fallback: If admin didn't select hotel, use default hotel
+          // Fallback: use default hotel for this location
+          const fallbackState = typeof item.state === 'object' ? item.state.name : item.state;
+          const fallbackCity = typeof item.city === 'object' ? item.city.name : item.city;
           const existingDefaultHotel = await hotelCollection.findOne({
-            state: item.state,
-            city: item.city,
+            state: fallbackState,
+            city: fallbackCity,
             defaultSelected: true,
           });
 
           if (!existingDefaultHotel) {
             return res.status(400).json(
               generateErrorResponse(
-                `No hotel selected for day ${item.dayNo} in ${item.state}, ${item.city}. Please select a hotel.`
+                `No hotel selected for day ${item.dayNo} in ${fallbackState}, ${fallbackCity}. Please select a hotel.`
               )
             );
           }
@@ -275,18 +272,47 @@ const addPilrimagePackage = async (req, res) => {
     const convertPath = (path) =>
       path.replace(/\\/g, "/").replace("public/", "");
 
-    // Files
+    // Upload theme image to Supabase
+    let themeImgPath;
+    try {
+      themeImgPath = await uploadToSupabase(
+        req.files.themeImg[0].path,
+        req.files.themeImg[0].originalname,
+        "pilgrimage/theme"
+      );
+    } catch (uploadError) {
+      console.warn("Supabase upload failed, using local path:", uploadError.message);
+      themeImgPath = `https://sarvatrah-backend.onrender.com/public/${convertPath(req.files.themeImg[0].path)}`;
+    }
+
     const themeImg = {
       filename: req.files.themeImg[0].filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(req.files.themeImg[0].path)}`,
+      path: themeImgPath,
       mimetype: req.files.themeImg[0].mimetype,
     };
 
-    const images = req.files.packageImages.map((file) => ({
-      filename: file.filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
-      mimetype: file.mimetype,
-    }));
+    // Upload additional images to Supabase
+    const images = [];
+    if (req.files.packageImages) {
+      for (const file of req.files.packageImages) {
+        let filePath;
+        try {
+          filePath = await uploadToSupabase(
+            file.path,
+            file.originalname,
+            "pilgrimage/gallery"
+          );
+        } catch (uploadError) {
+          console.warn("Supabase upload failed, using local path:", uploadError.message);
+          filePath = `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
+        }
+        images.push({
+          filename: file.filename,
+          path: filePath,
+          mimetype: file.mimetype,
+        });
+      }
+    }
     
 
     // Create a new holiday package

@@ -1043,10 +1043,18 @@ route.post(
       });
 
     } catch (err) {
-      console.error("Error creating package:", err);
+      console.error("❌ Error creating package:", err);
+      console.error("❌ Error stack:", err.stack);
+      console.error("❌ Error name:", err.name);
+      console.error("❌ Validation errors:", err.errors);
       return res.status(500).json({
         success: false,
-        message: err.message
+        message: err.message,
+        error: err.name,
+        validationErrors: err.errors ? Object.keys(err.errors).map(key => ({
+          field: key,
+          message: err.errors[key].message
+        })) : null
       });
     }
   }

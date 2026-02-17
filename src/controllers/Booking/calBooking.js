@@ -1,5 +1,6 @@
 const { hotelCollection } = require("../../models/hotel");
 const { HolidayPackage } = require("../../models/holidaysPackage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const { vehicleCollection } = require("../../models/vehicle");
 
 // ======================== INTERNAL FUNCTION ===========================
@@ -8,6 +9,7 @@ async function calculatePackageCostInternal(body) {
     const {
       // HOLIDAY PACKAGE + VEHICLE
       holidayPackageId,
+      pilgrimagePackageId, // Support for pilgrimage packages
       vehicleId,
 
       // HOTEL INPUTS
@@ -22,10 +24,14 @@ async function calculatePackageCostInternal(body) {
       // MARKUP
       priceMarkup = 0
     } = body;
+
+    // Determine package ID (support both holiday and pilgrimage)
+    const packageId = holidayPackageId || pilgrimagePackageId;
     let markup = priceMarkup;
     let days = 0;
     let hotelCost = 0;
     let vehicleFinal = 0;
+    let basePackagePrice = 0;
 
     // 1️⃣ CALCULATE DAYS
     if (startDate && endDate) {
@@ -57,14 +63,19 @@ async function calculatePackageCostInternal(body) {
 
       if (!room) throw new Error(`Room type ${roomType} not found in this hotel`);
 
-      const available = room.duration.some((d) => {
-        return (
-          new Date(startDate) >= new Date(d.startDate) &&
-          new Date(endDate) <= new Date(d.endDate)
-        );
-      });
+      // Check room availability - if duration is configured, validate dates
+      if (room.duration && room.duration.length > 0) {
+        const available = room.duration.some((d) => {
+          return (
+            new Date(startDate) >= new Date(d.startDate) &&
+            new Date(endDate) <= new Date(d.endDate)
+          );
+        });
 
-      if (!available) throw new Error("Room is not available for selected dates");
+        if (!available) {
+          throw new Error("Room is not available for selected dates");
+        }
+      }
 
       const occupancyRate = room.occupancyRates[occupancy - 1];
       if (!occupancyRate) throw new Error("Invalid occupancy selected");
@@ -79,16 +90,29 @@ async function calculatePackageCostInternal(body) {
       hotelCost = perDayAmount * days;
     }
 
-    // 3️⃣ VEHICLE COST
-    if (holidayPackageId && vehicleId) {
-      const holidayPkg = await HolidayPackage.findById(holidayPackageId);
-      if (!holidayPkg) throw new Error("Holiday package not found");
+    // 3️⃣ VEHICLE COST + BASE PACKAGE PRICE
+    if (packageId && vehicleId) {
+      // Try to find the package in either HolidayPackage or Pilgrimage collection
+      let pkg = null;
 
-      const vehicleData = holidayPkg.availableVehicle.find(
+      if (holidayPackageId) {
+        pkg = await HolidayPackage.findById(holidayPackageId);
+        if (!pkg) throw new Error("Holiday package not found");
+      } else if (pilgrimagePackageId) {
+        pkg = await Pilgrimage.findById(pilgrimagePackageId);
+        if (!pkg) throw new Error("Pilgrimage package not found");
+      }
+
+      if (!pkg) throw new Error("Package not found");
+
+      // Get base package price
+      basePackagePrice = pkg.basePrice || 0;
+
+      const vehicleData = pkg.availableVehicle.find(
         (v) => v.vehicle_id == vehicleId
       );
 
-      if (!vehicleData) throw new Error("Vehicle not available in this holiday package");
+      if (!vehicleData) throw new Error("Vehicle not available in this package");
 
       const vehicle = await vehicleCollection.findById(vehicleId);
 
@@ -98,24 +122,34 @@ async function calculatePackageCostInternal(body) {
 
       const baseVehiclePrice = vehicleData.price || vehicle.rate || 0;
 
-      
-      if (holidayPkg.priceMarkup) {
-        markup = holidayPkg.priceMarkup;
+
+      if (pkg.priceMarkup) {
+        markup = pkg.priceMarkup;
       }
 
       const markupAmount = (baseVehiclePrice * markup) / 100;
       vehicleFinal = baseVehiclePrice + markupAmount;
     }
 
-    const finalPackage = hotelCost + vehicleFinal;
-    console.log({ finalPackage, days, hotelCost, vehicleFinal ,markup});
+    // 4️⃣ FINAL PACKAGE PRICE = Base Package Price + Hotel Cost + Vehicle Cost
+    const finalPackage = basePackagePrice + hotelCost + vehicleFinal;
+
+    // Calculate per day amount for display purposes
+    let perDayAmount = undefined;
+    if (hotel_id && days > 0) {
+      perDayAmount = hotelCost / days;
+    }
+
+    console.log({ finalPackage, basePackagePrice, days, hotelCost, vehicleFinal, markup, perDayAmount });
     return {
       success: true,
       finalPackage,
       breakdown: {
         days,
+        basePackagePrice,
         hotelCost,
         vehicleFinal,
+        perDayAmount,
         markup,
         hotelPriceFound: hotelCost > 0,
         vehiclePriceFound: vehicleFinal > 0

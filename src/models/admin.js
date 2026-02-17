@@ -6,6 +6,7 @@ const adminSchema = new Schema({
   email: { type: String, unique: true },
   username:{type:String},
   password: { type: String, required: true },
+  userRole: { type: Number, default: 1 }, // 1 = admin
   tokens: [{ token: { type: String }, expiresAt: { type: Date } }],
 });
 

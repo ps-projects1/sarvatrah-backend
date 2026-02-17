@@ -97,7 +97,7 @@ app.use("/process", processRouts);
 app.use("/experience", experienceRoute);
 app.use("/api/admin", adminRoutes);
 app.use("/api/v1", user);
-app.use("/booking", booking);
+app.use("/api/booking", booking);
 app.use("/hotel", hotelRoutes);
 app.use("/vehicle", vehicleRoutes);
 app.use("/state", stateRoutes);
@@ -111,7 +111,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/auth",otpless);
 app.use("/api/profile", profileRoutes);
-app.use("/api/pilgrimagePackage",pilgrimageRoutes)
+app.use("/api/pilgrimagePackage", pilgrimageRoutes)
 app.use("/api/footer", footerRoutes);
 app.use("/api/testimonials",testimonials)
 

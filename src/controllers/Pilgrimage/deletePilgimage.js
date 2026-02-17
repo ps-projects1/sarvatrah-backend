@@ -2,11 +2,11 @@ const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
-const { PilgrimagePackage } = require("../../models/pilgrimage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const fs = require("fs").promises;
 const path = require("path");
 
-const deletePilgrimagePackage = async (req, res) => {
+const deletePilgrimage = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -18,7 +18,7 @@ const deletePilgrimagePackage = async (req, res) => {
     }
 
     // Find the package to get file paths before deletion
-    const packageToDelete = await PilgrimagePackage.findById(id);
+    const packageToDelete = await Pilgrimage.findById(id);
 
     if (!packageToDelete) {
       return res
@@ -70,7 +70,7 @@ const deletePilgrimagePackage = async (req, res) => {
     }
 
     // Delete the package from database
-    await PilgrimagePackage.findByIdAndDelete(id);
+    await Pilgrimage.findByIdAndDelete(id);
 
     // Delete associated files
     let deletedFilesCount = 0;
@@ -119,4 +119,4 @@ const deletePilgrimagePackage = async (req, res) => {
   }
 };
 
-module.exports = { deletePilgrimagePackage };
+module.exports = { deletePilgrimagePackage: deletePilgrimage };

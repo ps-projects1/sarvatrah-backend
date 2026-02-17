@@ -34,6 +34,14 @@ const deleteBooking = async (req, res) => {
     /* =====================
        ROLE CHECK (ADMIN)
     ===================== */
+    console.log("Delete Booking - Auth Debug:", {
+      userRole: req.user.userRole,
+      isAdmin: req.isAdmin,
+      userType: req.userType,
+      userId: req.user._id,
+      userEmail: req.user.email || req.user.username
+    });
+
     if (req.user.userRole !== 1) {
       return res.status(403).json({
         success: false,

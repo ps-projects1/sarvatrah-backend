@@ -2,13 +2,13 @@ const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
-const { PilgrimagePackage } = require("../../models/pilgrimage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const Joi = require("joi");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
 
-const updatePilgrimagePackage = async (req, res) => {
+const updatePilgrimage = async (req, res) => {
   try {
     const {
       _id,
@@ -53,7 +53,7 @@ const updatePilgrimagePackage = async (req, res) => {
     }
 
     // Find existing package
-    const existingPackage = await PilgrimagePackage.findById(_id);
+    const existingPackage = await Pilgrimage.findById(_id);
     if (!existingPackage) {
       return res
         .status(404)
@@ -155,17 +155,16 @@ const updatePilgrimagePackage = async (req, res) => {
     const convertPath = (path) =>
       path.replace(/\\/g, "/").replace("public/", "");
 
-    // Update theme image if provided
-    if (req.files && req.files.length > 0) {
-      const themeFile = req.files[0];
-      
-      // Upload to Supabase or use local path
+    // Update theme image if provided (req.files is object from upload.fields())
+    if (req.files && req.files.themeImg && req.files.themeImg.length > 0) {
+      const themeFile = req.files.themeImg[0];
+
       let themeImgPath;
       try {
         themeImgPath = await uploadToSupabase(
           themeFile.path,
           themeFile.originalname,
-          "holiday/theme"
+          "pilgrimage/theme"
         );
       } catch (uploadError) {
         console.warn("Supabase upload failed, using local path:", uploadError.message);
@@ -177,35 +176,34 @@ const updatePilgrimagePackage = async (req, res) => {
         path: themeImgPath,
         mimetype: themeFile.mimetype,
       };
+    }
 
-      // Handle additional images
-      if (req.files.length > 1) {
-        const additionalImages = [];
-        for (let i = 1; i < req.files.length; i++) {
-          const file = req.files[i];
-          let filePath;
-          
-          try {
-            filePath = await uploadToSupabase(
-              file.path,
-              file.originalname,
-              "holiday/gallery"
-            );
-          } catch (uploadError) {
-            console.warn("Supabase upload failed, using local path:", uploadError.message);
-            filePath = `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
-          }
+    // Handle additional images if provided
+    if (req.files && req.files.packageImages && req.files.packageImages.length > 0) {
+      const additionalImages = [];
+      for (const file of req.files.packageImages) {
+        let filePath;
 
-          additionalImages.push({
-            filename: file.filename,
-            path: filePath,
-            mimetype: file.mimetype,
-          });
+        try {
+          filePath = await uploadToSupabase(
+            file.path,
+            file.originalname,
+            "pilgrimage/gallery"
+          );
+        } catch (uploadError) {
+          console.warn("Supabase upload failed, using local path:", uploadError.message);
+          filePath = `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
         }
-        
-        // Append new images to existing ones
-        existingPackage.images = [...existingPackage.images, ...additionalImages];
+
+        additionalImages.push({
+          filename: file.filename,
+          path: filePath,
+          mimetype: file.mimetype,
+        });
       }
+
+      // Append new images to existing ones
+      existingPackage.images = [...existingPackage.images, ...additionalImages];
     }
 
     // Update fields (only if provided)
@@ -263,4 +261,4 @@ const updatePilgrimagePackage = async (req, res) => {
   }
 };
 
-module.exports = { updatePilgrimagePackage };
+module.exports = { updatePilgrimagePackage: updatePilgrimage };

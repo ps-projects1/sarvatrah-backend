@@ -2,7 +2,7 @@ const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
-const { PilgrimagePackage } = require("../../models/pilgrimage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const moment = require("moment");
@@ -46,7 +46,7 @@ const pilgrimagePackageDetails = async (req, res) => {
     }
 
     // Find holiday package
-    let pilgrimagePackages = await PilgrimagePackage.findById(
+    let pilgrimagePackages = await Pilgrimage.findById(
       id,
       "-__v -createdAt -updatedAt"
     );

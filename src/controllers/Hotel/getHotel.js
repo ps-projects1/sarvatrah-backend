@@ -10,8 +10,17 @@ const getHotel = async (req, res) => {
 
     const filter = {};
 
-    if (city) filter.city = { $regex: new RegExp(city, "i") };
-    if (state) filter.state = { $regex: new RegExp(state, "i") };
+    // Trim whitespace and apply case-insensitive regex filter
+    if (city) {
+      const cityTrimmed = city.trim();
+      filter.city = { $regex: new RegExp(`^${cityTrimmed}$`, "i") };
+      console.log(`🔍 Filtering hotels by city: "${cityTrimmed}"`);
+    }
+    if (state) {
+      const stateTrimmed = state.trim();
+      filter.state = { $regex: new RegExp(`^${stateTrimmed}$`, "i") };
+      console.log(`🔍 Filtering hotels by state: "${stateTrimmed}"`);
+    }
 
     let hotelData, total, totalPages;
 
@@ -27,6 +36,7 @@ const getHotel = async (req, res) => {
       hotelData = await hotelCollection.find(filter).sort({ _id: -1 });
       total = hotelData.length;
       totalPages = 1;
+      console.log(`✅ Found ${total} hotels matching city: "${city}" and state: "${state}"`);
     }
     // Case 2: no pagination → return all (SORT REQUIRED)
     else if (!isPaginationRequested) {

@@ -8,6 +8,9 @@ const moment = require("moment");
 
 const userHolidayPackageList = async (req, res) => {
   try {
+    console.log("=== User Holiday Package List API Called ===");
+    console.log("Query params:", req.query);
+
     let date = new Date();
     date = moment(date).format("YYYY-MM-DD");
     // Pagination parameters
@@ -16,7 +19,8 @@ const userHolidayPackageList = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Filter parameters
-    const { packageType, nights } = req.query;
+    const { packageType, nights, displayHomepage } = req.query;
+    console.log("Extracted filters:", { packageType, nights, displayHomepage });
 
     // Build the filter object
     const filter = {};
@@ -24,6 +28,12 @@ const userHolidayPackageList = async (req, res) => {
     // Add theme filter if provided
     if (packageType) {
       filter.packageType = packageType;
+    }
+
+    // Add displayHomepage filter if provided
+    if (displayHomepage !== undefined) {
+      filter.displayHomepage = displayHomepage === "true";
+      console.log("displayHomepage filter applied:", filter.displayHomepage);
     }
 
     // Add duration filter if provided
@@ -47,7 +57,9 @@ const userHolidayPackageList = async (req, res) => {
     }
 
     // Get total count of documents for pagination info
+    console.log("Final filter object:", JSON.stringify(filter, null, 2));
     const totalHolidayPackages = await HolidayPackage.countDocuments(filter);
+    console.log("Total holiday packages matching filter:", totalHolidayPackages);
 
     // Find holiday packages with pagination and filters
     let holidayPackages = await HolidayPackage.find(
@@ -57,7 +69,17 @@ const userHolidayPackageList = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    console.log("Holiday packages retrieved:", holidayPackages.length);
+    if (holidayPackages.length > 0) {
+      console.log("First package:", {
+        id: holidayPackages[0]._id,
+        name: holidayPackages[0].packageName,
+        displayHomepage: holidayPackages[0].displayHomepage
+      });
+    }
+
     if (!holidayPackages || holidayPackages.length === 0) {
+      console.log("No holiday packages found, returning 404");
       return res
         .status(404)
         .json(generateErrorResponse("Not Found", "No holiday packages found"));

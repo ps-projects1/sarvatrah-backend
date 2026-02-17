@@ -52,9 +52,9 @@ router.get(
    CALCULATE PACKAGE COST
 ========================= */
 
+// No auth required - users can calculate price before logging in
 router.post(
   "/calculateBooking",
-  authMiddleware,
   calculatePackageCost
 );
 
@@ -78,11 +78,19 @@ router.post(
    DELETE BOOKING
 ========================= */
 
-router.delete(
-  "/:id",
+/* =========================
+   BOOKING STATS
+========================= */
+
+router.get(
+  "/stats",
   authMiddleware,
-  deleteBooking
+  getBookingStats
 );
+
+/* =========================
+   BOOKING CRUD OPERATIONS
+========================= */
 
 router.post(
   "/",
@@ -108,9 +116,9 @@ router.put(
   updateBookingStatus
 );
 
-router.get(
-  "/stats",
+router.delete(
+  "/:id",
   authMiddleware,
-  getBookingStats
+  deleteBooking
 );
 module.exports = router;

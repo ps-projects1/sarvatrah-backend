@@ -1,5 +1,6 @@
 const Booking = require("../../models/booking");
 const { HolidayPackage } = require("../../models/holidaysPackage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const User = require("../../models/user");
@@ -26,7 +27,10 @@ const createBooking = async (req, res) => {
       occupancy,
       childWithBed,
       childWithoutBed,
-      priceMarkup
+      priceMarkup,
+
+      // PACKAGE TYPE
+      bookingType = "holiday"  // Default to "holiday" for backward compatibility
     } = req.body;
 
     /* =====================

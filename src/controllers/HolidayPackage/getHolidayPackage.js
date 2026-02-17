@@ -8,6 +8,16 @@ const getHolidayPackage = async (req, res) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : null;
     const limit = req.query.limit ? parseInt(req.query.limit) : null;
+    const { displayHomepage, recommendedPackage } = req.query;
+
+    // Build filter object
+    const filter = {};
+    if (displayHomepage !== undefined) {
+      filter.displayHomepage = displayHomepage === "true";
+    }
+    if (recommendedPackage !== undefined) {
+      filter.recommendedPackage = recommendedPackage === "true";
+    }
 
     let holidayPackages;
     let pagination = null;
@@ -16,9 +26,9 @@ const getHolidayPackage = async (req, res) => {
     if (page && limit) {
       const skip = (page - 1) * limit;
 
-      const totalHolidayPackages = await HolidayPackage.countDocuments();
+      const totalHolidayPackages = await HolidayPackage.countDocuments(filter);
 
-      holidayPackages = await HolidayPackage.find({}, "-__v -createdAt -updatedAt")
+      holidayPackages = await HolidayPackage.find(filter, "-__v -createdAt -updatedAt")
         .sort({ _id: -1 })
         .skip(skip)
         .limit(limit);
@@ -41,7 +51,7 @@ const getHolidayPackage = async (req, res) => {
     } else {
       // ✨ CASE 2 — No pagination, return all data
       holidayPackages = await HolidayPackage.find(
-        {},
+        filter,
         "-__v -createdAt -updatedAt"
       ).sort({ _id: -1 });
 

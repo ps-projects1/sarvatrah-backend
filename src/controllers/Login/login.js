@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 const login = async (req, res) => {
   const { email, password } = req.body;
- 
+
   if (!email || !password) {
     return res.status(400).json({
       success: false,

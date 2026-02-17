@@ -2,12 +2,15 @@ const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
-const { PilgrimagePackage } = require("../../models/pilgrimage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const { hotelCollection } = require("../../models/hotel");
 const moment = require("moment");
 
-const userPilgrimagePackageList = async (req, res) => {
+const userPilgrimageList = async (req, res) => {
   try {
+    console.log("=== User Pilgrimage Package List API Called ===");
+    console.log("Query params:", req.query);
+
     let date = new Date();
     date = moment(date).format("YYYY-MM-DD");
     // Pagination parameters
@@ -16,7 +19,8 @@ const userPilgrimagePackageList = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Filter parameters
-    const { packageType, nights } = req.query;
+    const { packageType, nights, displayHomepage } = req.query;
+    console.log("Extracted filters:", { packageType, nights, displayHomepage });
 
     // Build the filter object
     const filter = {};
@@ -24,6 +28,12 @@ const userPilgrimagePackageList = async (req, res) => {
     // Add theme filter if provided
     if (packageType) {
       filter.packageType = packageType;
+    }
+
+    // Add displayHomepage filter if provided
+    if (displayHomepage !== undefined) {
+      filter.displayHomepage = displayHomepage === "true";
+      console.log("displayHomepage filter applied:", filter.displayHomepage);
     }
 
     // Add duration filter if provided
@@ -47,24 +57,36 @@ const userPilgrimagePackageList = async (req, res) => {
     }
 
     // Get total count of documents for pagination info
-    const totalPilgrimagePackages = await PilgrimagePackage.countDocuments(filter);
+    console.log("Final filter object:", JSON.stringify(filter, null, 2));
+    const totalPilgrimages = await Pilgrimage.countDocuments(filter);
+    console.log("Total pilgrimage packages matching filter:", totalPilgrimages);
 
     // Find holiday packages with pagination and filters
-    let pilgrimagePackages = await PilgrimagePackage.find(
+    let pilgrimagePackages = await Pilgrimage.find(
       filter,
       "-__v -createdAt -updatedAt"
     )
       .skip(skip)
       .limit(limit);
 
+    console.log("Pilgrimage packages retrieved:", pilgrimagePackages.length);
+    if (pilgrimagePackages.length > 0) {
+      console.log("First package:", {
+        id: pilgrimagePackages[0]._id,
+        name: pilgrimagePackages[0].packageName,
+        displayHomepage: pilgrimagePackages[0].displayHomepage
+      });
+    }
+
     if (!pilgrimagePackages || pilgrimagePackages.length === 0) {
+      console.log("No pilgrimage packages found, returning 404");
       return res
         .status(404)
         .json(generateErrorResponse("Not Found", "No holiday packages found"));
     }
 
     // Calculate total pages
-    const totalPages = Math.ceil(totalPilgrimagePackages / limit);
+    const totalPages = Math.ceil(totalPilgrimages / limit);
     let packagePrice = 0;
     for (let pkg of pilgrimagePackages) {
       for (let iti of pkg.itinerary) {
@@ -144,7 +166,7 @@ const userPilgrimagePackageList = async (req, res) => {
       pagination: {
         currentPage: page,
         totalPages: totalPages,
-        totalItems: totalPilgrimagePackages,
+        totalItems: totalPilgrimages,
         itemsPerPage: limit,
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1,
@@ -171,4 +193,4 @@ const userPilgrimagePackageList = async (req, res) => {
   }
 };
 
-module.exports = { userPilgrimagePackageList };
+module.exports = { userPilgrimagePackageList: userPilgrimageList };

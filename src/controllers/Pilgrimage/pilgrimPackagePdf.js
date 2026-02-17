@@ -1,14 +1,14 @@
-const { PilgrimagePackage } = require("../../models/pilgrimage");
+const { Pilgrimage } = require("../../models/pilgrimage");
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-const generatePilgrimagePackagePdf = async (req, res) => {
+const generatePilgrimagePdf = async (req, res) => {
   try {
     const { id } = req.params;
 
     // Fetch holiday package
-    const pilgrimagePackage = await PilgrimagePackage.findById(id).lean();
+    const pilgrimagePackage = await Pilgrimage.findById(id).lean();
 
     if (!pilgrimagePackage) {
       return res.status(404).send("Holiday package not found");
@@ -614,4 +614,4 @@ const generatePilgrimagePackagePdf = async (req, res) => {
   }
 };
 
-module.exports = { generatePilgrimagePackagePdf };
+module.exports = { generatePilgrimagePackagePdf: generatePilgrimagePdf };
