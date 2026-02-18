@@ -2,6 +2,7 @@ const {
   generateErrorResponse,
   generateResponse,
 } = require("../../helper/response");
+const uploadToSupabase = require("../../utils/uploadToSupabase");
 const { HolidayPackage } = require("../../models/holidaysPackage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
@@ -42,7 +43,7 @@ const addHolidayPackage = async (req, res) => {
       itinerary,
     } = req.body;
     let selectedHotel;
-    
+
     itinerary = await JSON.parse(JSON.stringify(JSON.parse(itinerary)));
     destinationCity = JSON.parse(destinationCity);
     vehicles = JSON.parse(vehicles);
@@ -196,7 +197,7 @@ const addHolidayPackage = async (req, res) => {
     }
 
     // Validate each vehicle ID
-    for (const x of vehicles) {   
+    for (const x of vehicles) {
       const existingVehicle = await vehicleCollection.findById(x.vehicle_id);
       if (!existingVehicle) {
         return res
@@ -276,18 +277,60 @@ const addHolidayPackage = async (req, res) => {
       path.replace(/\\/g, "/").replace("public/", "");
 
     // Files
+    let themeImgPath;
+
+    try {
+      themeImgPath = await uploadToSupabase(
+        req.files.themeImg[0].path,
+        req.files.themeImg[0].originalname,
+        "holiday/theme"
+      );
+    } catch (uploadError) {
+      console.warn("Supabase upload failed, using local path:", uploadError.message);
+
+      themeImgPath = `${process.env.BASE_URL}/public/${convertPath(
+        req.files.themeImg[0].path
+      )}`;
+    }
+
     const themeImg = {
       filename: req.files.themeImg[0].filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(req.files.themeImg[0].path)}`,
+      path: themeImgPath,
       mimetype: req.files.themeImg[0].mimetype,
     };
 
-    const images = req.files.packageImages.map((file) => ({
-      filename: file.filename,
-      path: `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`,
-      mimetype: file.mimetype,
-    }));
-    
+    // -------------------
+    // Upload Gallery Images
+    // -------------------
+    const images = [];
+
+    if (req.files.packageImages && req.files.packageImages.length > 0) {
+      for (const file of req.files.packageImages) {
+        let filePath;
+
+        try {
+          filePath = await uploadToSupabase(
+            file.path,
+            file.originalname,
+            "holiday/gallery"
+          );
+        } catch (uploadError) {
+          console.warn("Supabase upload failed, using local path:", uploadError.message);
+
+          filePath = `${process.env.BASE_URL}/public/${convertPath(
+            file.path
+          )}`;
+        }
+
+        images.push({
+          filename: file.filename,
+          path: filePath,
+          mimetype: file.mimetype,
+        });
+      }
+    }
+
+
 
     // Create a new holiday package
     const newHolidayPackage = new HolidayPackage({
