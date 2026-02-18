@@ -63,9 +63,14 @@ const bookingSchema = new Mongoose.Schema(
       ref: "Pilgrimage",
     },
 
+    experienceId: {
+      type: Mongoose.Schema.Types.ObjectId,
+      ref: "Experience",
+    },
+
     bookingType: {
       type: String,
-      enum: ["holiday", "pilgrimage"],
+      enum: ["holiday", "pilgrimage", "experience"],
       required: true,
     },
     vehicleId: {
