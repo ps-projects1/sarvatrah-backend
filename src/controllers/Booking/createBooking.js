@@ -8,13 +8,12 @@ const { calculatePackageCostInternal } = require("./calBooking");
 
 const createBooking = async (req, res) => {
   try {
-    // 🔐 Always take user from token
     const userId = req.user._id;
 
     const {
       startDate,
       endDate,
-      totalPrice,           // OLD FLOW SWITCH
+      totalPrice,
       totalTraveller,
       vehicleId,
       hotelId,
@@ -22,24 +21,25 @@ const createBooking = async (req, res) => {
       travellers,
       billingInfo,
 
-      // NEW FLOW FIELDS
+      // NEW FLOW (holiday only)
       roomType,
       occupancy,
       childWithBed,
       childWithoutBed,
       priceMarkup,
 
-      // PACKAGE TYPE
-      bookingType = "holiday"  // Default to "holiday" for backward compatibility
+      bookingType = "holiday"
     } = req.body;
 
     /* =====================
        BASIC VALIDATION
     ===================== */
     if (
-      !startDate || !endDate ||
-      !totalTraveller || !vehicleId ||
-      !hotelId || !packageId
+      !startDate ||
+      !endDate ||
+      !totalTraveller ||
+      !vehicleId ||
+      !packageId
     ) {
       return res.status(400).json({
         success: false,
@@ -58,19 +58,49 @@ const createBooking = async (req, res) => {
       return res.status(403).json({ message: "Only users can book." });
 
     /* =====================
+       PACKAGE VALIDATION
+    ===================== */
+    let holidayPackage = null;
+    let pilgrimagePackage = null;
+
+    if (bookingType === "holiday") {
+      holidayPackage = await HolidayPackage.findById(packageId);
+      if (!holidayPackage) {
+        return res.status(404).json({
+          message: "Holiday package not found."
+        });
+      }
+    }
+
+    if (bookingType === "pilgrimage") {
+      pilgrimagePackage = await Pilgrimage.findById(packageId);
+      if (!pilgrimagePackage) {
+        return res.status(404).json({
+          message: "Pilgrimage package not found."
+        });
+      }
+    }
+
+    /* =====================
        REFERENCE VALIDATION
     ===================== */
-    const holidayPackage = await HolidayPackage.findById(packageId);
-    if (!holidayPackage)
-      return res.status(404).json({ message: "Holiday package not found." });
-
     const vehicle = await vehicleCollection.findById(vehicleId);
     if (!vehicle)
       return res.status(404).json({ message: "Vehicle not found." });
 
-    const hotel = await hotelCollection.findById(hotelId);
-    if (!hotel)
-      return res.status(404).json({ message: "Hotel not found." });
+    let hotel = null;
+
+    if (bookingType === "holiday") {
+      if (!hotelId) {
+        return res.status(400).json({
+          message: "Hotel is required for holiday booking."
+        });
+      }
+
+      hotel = await hotelCollection.findById(hotelId);
+      if (!hotel)
+        return res.status(404).json({ message: "Hotel not found." });
+    }
 
     /* =====================
        TRAVELLER VALIDATION
@@ -95,14 +125,14 @@ const createBooking = async (req, res) => {
 
     /* =====================================================
        OLD VERSION — CLIENT PROVIDED PRICE
-       (Allowed by business decision)
     ===================================================== */
     if (totalPrice) {
-      const booking = new Booking({
+
+      const bookingData = {
         user: userId,
-        holidayPackageId: packageId,
+        bookingType,
         vehicleId,
-        hotelId,
+        hotelId: bookingType === "holiday" ? hotelId : undefined,
         startDate,
         endDate,
         totalTraveller,
@@ -114,8 +144,17 @@ const createBooking = async (req, res) => {
           amount: Number(totalPrice),
           status: "created"
         }
-      });
+      };
 
+      if (bookingType === "holiday") {
+        bookingData.holidayPackageId = packageId;
+      }
+
+      if (bookingType === "pilgrimage") {
+        bookingData.pilgrimagePackageId = packageId;
+      }
+
+      const booking = new Booking(bookingData);
       await booking.save();
 
       return res.status(201).json({
@@ -129,69 +168,71 @@ const createBooking = async (req, res) => {
     /* =====================================================
        NEW VERSION — SERVER CALCULATED PRICE
     ===================================================== */
-    if (!roomType || !occupancy) {
-      return res.status(400).json({
-        message: "roomType and occupancy are required for price calculation."
+
+    let finalPrice = 0;
+    let costBreakup = {};
+    let hotelDetails = null;
+
+    /* =====================
+       HOLIDAY PRICE FLOW
+    ===================== */
+    if (bookingType === "holiday") {
+
+      if (!roomType || !occupancy) {
+        return res.status(400).json({
+          message: "roomType and occupancy are required."
+        });
+      }
+
+      const costData = await calculatePackageCostInternal({
+        holidayPackageId: packageId,
+        vehicleId,
+        hotel_id: hotelId,
+        roomType,
+        startDate,
+        endDate,
+        occupancy,
+        childWithBed,
+        childWithoutBed,
+        priceMarkup
       });
-    }
 
-    const costData = await calculatePackageCostInternal({
-      holidayPackageId: packageId,
-      vehicleId,
-      hotel_id: hotelId,
-      roomType,
-      startDate,
-      endDate,
-      occupancy,
-      childWithBed,
-      childWithoutBed,
-      priceMarkup
-    });
+      if (!costData.success) {
+        return res.status(400).json({
+          message: costData.message
+        });
+      }
 
-    if (!costData.success) {
-      return res.status(400).json({
-        message: costData.message
-      });
-    }
+      const room = hotel.rooms.find(r =>
+        r.roomType.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+        roomType.toLowerCase().replace(/[^a-z0-9]/g, "")
+      );
 
-    const room = hotel.rooms.find(r =>
-      r.roomType.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-      roomType.toLowerCase().replace(/[^a-z0-9]/g, "")
-    );
+      if (!room) {
+        return res.status(400).json({
+          message: "Selected room type not found in hotel."
+        });
+      }
 
-    if (!room) {
-      return res.status(400).json({
-        message: "Selected room type not found in hotel."
-      });
-    }
+      const childWithBedPrice = room.child?.childWithBedPrice || 0;
+      const childWithoutBedPrice = room.child?.childWithoutBedPrice || 0;
 
-    const childWithBedPrice = room.child?.childWithBedPrice || 0;
-    const childWithoutBedPrice = room.child?.childWithoutBedPrice || 0;
+      const perDayAmount =
+        (room.occupancyRates[occupancy - 1] || 0) +
+        (childWithBed ? childWithBedPrice : 0) +
+        (childWithoutBed ? childWithoutBedPrice : 0);
 
-    const perDayAmount =
-      (room.occupancyRates[occupancy - 1] || 0) +
-      (childWithBed ? childWithBedPrice : 0) +
-      (childWithoutBed ? childWithoutBedPrice : 0);
+      const totalHotelCost =
+        perDayAmount * costData.breakdown.days;
 
-    const totalHotelCost = perDayAmount * costData.breakdown.days;
+      finalPrice = costData.finalPackage;
 
-    const booking = new Booking({
-      user: userId,
-      holidayPackageId: packageId,
-      vehicleId,
-      hotelId,
-      startDate,
-      endDate,
-      totalTraveller,
-      totalPrice: costData.finalPackage,
-      status: "PaymentPending",
-      travellers,
-      billingInfo,
-      payment: {
-        amount: costData.finalPackage,
-        status: "created"
-      },
-      hotelDetails: {
+      costBreakup = {
+        ...costData.breakdown,
+        finalPackage: costData.finalPackage
+      };
+
+      hotelDetails = {
         hotelId,
         roomType,
         occupancy,
@@ -201,13 +242,74 @@ const createBooking = async (req, res) => {
         childWithoutBedPrice,
         perDayRoomPrice: perDayAmount,
         totalHotelCost
-      },
-      costBreakup: {
-        ...costData.breakdown,
-        finalPackage: costData.finalPackage
-      }
-    });
+      };
+    }
 
+    /* =====================
+       PILGRIMAGE PRICE FLOW
+    ===================== */
+    if (bookingType === "pilgrimage") {
+
+      const vehicleData = pilgrimagePackage.vehiclePrices.find(
+        v => v.vehicle_id === vehicleId.toString()
+      );
+
+      if (!vehicleData) {
+        return res.status(400).json({
+          message: "Vehicle price not found in pilgrimage package."
+        });
+      }
+
+      const basePrice = pilgrimagePackage.basePrice || 0;
+      const vehiclePrice = vehicleData.price || 0;
+      const markup = pilgrimagePackage.priceMarkup || 0;
+
+      const totalBase = basePrice * Number(totalTraveller);
+
+      finalPrice = totalBase + vehiclePrice + markup;
+
+      costBreakup = {
+        days: pilgrimagePackage.packageDuration.days,
+        hotelCost: totalBase,
+        vehicleCost: vehiclePrice,
+        priceMarkup: markup,
+        finalPackage: finalPrice
+      };
+    }
+
+    /* =====================
+       CREATE BOOKING
+    ===================== */
+
+    const bookingData = {
+      user: userId,
+      bookingType,
+      vehicleId,
+      hotelId: bookingType === "holiday" ? hotelId : undefined,
+      startDate,
+      endDate,
+      totalTraveller,
+      totalPrice: finalPrice,
+      status: "PaymentPending",
+      travellers,
+      billingInfo,
+      payment: {
+        amount: finalPrice,
+        status: "created"
+      },
+      costBreakup
+    };
+
+    if (bookingType === "holiday") {
+      bookingData.holidayPackageId = packageId;
+      bookingData.hotelDetails = hotelDetails;
+    }
+
+    if (bookingType === "pilgrimage") {
+      bookingData.pilgrimagePackageId = packageId;
+    }
+
+    const booking = new Booking(bookingData);
     await booking.save();
 
     return res.status(201).json({
