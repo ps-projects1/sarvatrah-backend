@@ -7,7 +7,7 @@ const bookingController = require("../controllers/Booking/BookingController");
 const { calculatePackageCost } = require("../controllers/Booking/calBooking");
 const { createPaymentOrder } = require("../controllers/Payment/createOrder");
 const { verifyPayment } = require("../controllers/Payment/verifyPayment");
-const { createBooking } = require("../controllers/Booking/createBooking");
+const { createBooking,createExperienceBooking } = require("../controllers/Booking/createBooking");
 const { getBookingById } = require("../controllers/Booking/getBookingById");
 const { updateBooking } = require("../controllers/Booking/updateBooking");
 const { updateBookingStatus } = require("../controllers/Booking/updateBookingStatus");
@@ -29,6 +29,13 @@ router.post(
   authMiddleware,
   bookingController.createBooking.createBooking
 );
+
+router.post(
+  "/createExperienceBooking",
+  authMiddleware,
+  bookingController.createBooking.createExperienceBooking
+);
+
 
 /* =========================
    FETCH BOOKINGS

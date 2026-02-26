@@ -137,7 +137,7 @@ const createBooking = async (req, res) => {
         user: userId,
         bookingType,
         vehicleId,
-        hotelId: bookingType === "holiday" ? hotelId : undefined,
+        hotelId: hotelId,
         startDate,
         endDate,
         totalTraveller,
@@ -347,4 +347,166 @@ const createBooking = async (req, res) => {
   }
 };
 
-module.exports = { createBooking };
+const createExperienceBooking = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const {
+      experienceId,
+      pricingId,
+      travelDate,
+      startTimeId,      // optional (if date_time type)
+      pickupType,       // pick_up_and_drop | pick_up_only | drop_only
+      totalTraveller,
+      travellers,
+      billingInfo
+    } = req.body;
+
+    /* ===============================
+       BASIC VALIDATION
+    =============================== */
+    if (!experienceId || !pricingId || !totalTraveller) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields."
+      });
+    }
+
+    /* ===============================
+       USER VALIDATION
+    =============================== */
+    const user = await User.findById(userId);
+    if (!user)
+      return res.status(404).json({ message: "User not found." });
+
+    if (user.userRole !== 0)
+      return res.status(403).json({ message: "Only users can book." });
+
+    /* ===============================
+       EXPERIENCE VALIDATION
+    =============================== */
+    const experience = await Experience.findById(experienceId)
+      .populate("pricing")
+      .populate("availability_detail")
+      .populate("start_time");
+
+    if (!experience)
+      return res.status(404).json({
+        message: "Experience not found."
+      });
+
+    /* ===============================
+       PRICING VALIDATION
+    =============================== */
+    const selectedPricing = experience.pricing.find(
+      (p) => p._id.toString() === pricingId
+    );
+
+    if (!selectedPricing) {
+      return res.status(400).json({
+        message: "Selected pricing not found."
+      });
+    }
+
+    /* ===============================
+       TRAVELLER VALIDATION
+    =============================== */
+    if (!Array.isArray(travellers) || travellers.length === 0) {
+      return res.status(400).json({
+        message: "Travellers data is required."
+      });
+    }
+
+    if (travellers.filter(t => t.isLeadTraveller).length !== 1) {
+      return res.status(400).json({
+        message: "There must be exactly one lead traveller."
+      });
+    }
+
+    if (travellers.length !== Number(totalTraveller)) {
+      return res.status(400).json({
+        message: "Total travellers count mismatch."
+      });
+    }
+
+    /* ===============================
+       AVAILABILITY VALIDATION
+    =============================== */
+
+    if (experience.availabilityType === "date_time" && !startTimeId) {
+      return res.status(400).json({
+        message: "Start time is required for this experience."
+      });
+    }
+
+    /* ===============================
+       PRICE CALCULATION
+    =============================== */
+
+    let finalPrice = 0;
+
+    const basePrice = selectedPricing.price || 0;
+    finalPrice = basePrice * Number(totalTraveller);
+
+    // Add pickup cost if selected
+    if (
+      pickupType &&
+      experience.travelling_facility?.[pickupType]?.price
+    ) {
+      finalPrice += experience.travelling_facility[pickupType].price;
+    }
+
+    /* ===============================
+       CREATE BOOKING
+    =============================== */
+
+    const bookingData = {
+      user: userId,
+      bookingType: "experience",
+      experienceId,
+      travelDate,
+      startTimeId,
+      totalTraveller,
+      totalPrice: finalPrice,
+      status: "PaymentPending",
+      travellers,
+      billingInfo,
+      pickupType,
+      pricingId,
+      payment: {
+        amount: finalPrice,
+        status: "created"
+      },
+      costBreakup: {
+        basePrice,
+        totalTraveller,
+        pickupCharge:
+          pickupType &&
+          experience.travelling_facility?.[pickupType]?.price
+            ? experience.travelling_facility[pickupType].price
+            : 0,
+        finalPrice
+      }
+    };
+
+    const booking = new Booking(bookingData);
+    await booking.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Experience booking created successfully.",
+      booking
+    });
+
+  } catch (error) {
+    console.error("Experience Booking Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error creating experience booking",
+      error: error.message
+    });
+  }
+};
+
+
+module.exports = { createBooking,createExperienceBooking };

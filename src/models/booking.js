@@ -76,12 +76,12 @@ const bookingSchema = new Mongoose.Schema(
     vehicleId: {
       type: Mongoose.Schema.Types.ObjectId,
       ref: "vehicles",
-      required: true,
+      
     },
     hotelId: {
       type: Mongoose.Schema.Types.ObjectId,
       ref: "hotels",
-      required: true,
+      
     },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
