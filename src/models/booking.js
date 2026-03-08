@@ -83,6 +83,9 @@ const bookingSchema = new Mongoose.Schema(
       ref: "hotels",
       
     },
+    invoice: {
+      type: String
+    },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     bookingDate: { type: Date, default: Date.now, required: true },

@@ -77,7 +77,11 @@ async function calculatePackageCostInternal(body) {
         }
       }
 
+      console.log("room.occupancyRates: ", room.occupancyRates);
+      console.log("occupancy: ", occupancy - 1);
+
       const occupancyRate = room.occupancyRates[occupancy - 1];
+      console.log("occupancyRate: ", occupancyRate);
       if (!occupancyRate) throw new Error("Invalid occupancy selected");
 
       let childTotal = 0;

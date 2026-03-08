@@ -150,6 +150,81 @@ const sendOtp = async (mail, otp) => {
 
 /**
  * ============================
+ * 💰 Send Refund Request Created Email
+ * ============================
+ */
+const sendRefundInvoiceEmail = async ({
+  email,
+  bookingId,
+  refundAmount,
+  invoiceUrl
+}) => {
+
+  const html = `
+  <div style="font-family:Arial">
+
+  <h2>Refund Invoice</h2>
+
+  <p>Your refund has been initiated for booking <b>${bookingId}</b></p>
+
+  <p>Refund Amount: <b>-₹${refundAmount}</b></p>
+
+  <p>
+  Download your refund invoice:
+  <a href="${invoiceUrl}">Download Invoice</a>
+  </p>
+
+  <p>Regards<br/>Sarvatrah Support</p>
+
+  </div>
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Refund Invoice for your Hotel Booking ${bookingId}`,
+    html
+  });
+};
+
+const sendBookingInvoiceEmail = async ({
+  email,
+  bookingId,
+  amount,
+  invoiceUrl
+}) => {
+
+  const html = `
+  <div style="font-family:Arial">
+
+  <h2>Booking Confirmation</h2>
+
+  <p>Your booking has been created successfully.</p>
+
+  <p>
+  Booking ID: <b>${bookingId}</b>
+  </p>
+
+  <p>
+  Total Amount: <b>₹${amount}</b>
+  </p>
+
+  <p>
+  Download your invoice:
+  <a href="${invoiceUrl}">Download Invoice</a>
+  </p>
+
+  </div>
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Booking Invoice for your Booking ${bookingId}`,
+    html
+  });
+};
+
+/**
+ * ============================
  * 📦 Exports
  * ============================
  */
@@ -157,4 +232,6 @@ module.exports = {
   sendEmail,
   sendCredentials,
   sendOtp,
+  sendRefundInvoiceEmail,
+  sendBookingInvoiceEmail
 };

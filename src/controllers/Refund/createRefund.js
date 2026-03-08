@@ -1,5 +1,8 @@
 const Refund = require("../../models/refund");
 const Booking = require("../../models/booking");
+const generateRefundInvoice = require("../../helper/refundInvoice");
+const { sendRefundInvoiceEmail } = require("../../helper/sendMail");
+const uploadToSupabase = require("../../utils/uploadToSupabase");
 
 const createRefund = async (req, res) => {
   try {
@@ -37,7 +40,7 @@ const createRefund = async (req, res) => {
     }
 
     // Check if refund already exists for this booking
-    const existingRefund = await Refund.findOne({ 
+    const existingRefund = await Refund.findOne({
       booking: bookingId,
       status: { $nin: ['rejected', 'completed'] }
     });
@@ -57,7 +60,7 @@ const createRefund = async (req, res) => {
     // If no percentage provided, calculate based on cancellation policy
     if (!refundPercentage) {
       const daysUntilStart = Math.ceil((booking.startDate - new Date()) / (1000 * 60 * 60 * 24));
-      
+
       // Default cancellation policy
       if (daysUntilStart >= 30) {
         calculatedRefundPercentage = 90;
@@ -91,6 +94,50 @@ const createRefund = async (req, res) => {
     };
 
     const refund = await Refund.create(refundData);
+
+    try {
+
+      const user = await booking.populate(
+        "user",
+        "firstname lastname email"
+      );
+
+      // 1️⃣ Generate PDF
+      const pdfPath = await generateRefundInvoice({
+        booking,
+        refund,
+        user: user.user
+      });
+
+      let invoiceUrl;
+
+      // 2️⃣ Upload to Supabase
+      try {
+        invoiceUrl = await uploadToSupabase(
+          pdfPath,
+          `refund-invoice-${booking._id}.pdf`,
+          "refund-invoices"
+        );
+      } catch (uploadError) {
+        console.warn("Supabase upload failed:", uploadError.message);
+        invoiceUrl = pdfPath;
+      }
+
+      // 3️⃣ Save invoice URL
+      refund.invoice = invoiceUrl;
+      await refund.save();
+
+      // 4️⃣ Send email
+      await sendRefundInvoiceEmail({
+        email: user.user.email,
+        bookingId: booking._id,
+        refundAmount: refund.refundAmount,
+        invoiceUrl
+      });
+
+    } catch (err) {
+      console.error("Refund invoice process failed:", err);
+    }
 
     // Populate the response
     const populatedRefund = await Refund.findById(refund._id)

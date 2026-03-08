@@ -6,6 +6,10 @@ const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const User = require("../../models/user");
 const { calculatePackageCostInternal } = require("./calBooking");
+const generateBookingInvoice = require("../../helper/bookingInvoice");
+const { sendBookingInvoiceEmail } = require("../../helper/sendMail");
+const uploadToSupabase = require("../../utils/uploadToSupabase");
+
 
 const createBooking = async (req, res) => {
   try {
@@ -163,10 +167,57 @@ const createBooking = async (req, res) => {
       const booking = new Booking(bookingData);
       await booking.save();
 
+      try {
+
+        const populatedUser = await booking.populate(
+          "user",
+          "firstname lastname email"
+        );
+
+        // Generate invoice
+        const pdfPath = await generateBookingInvoice({
+          booking,
+          user: populatedUser.user
+        });
+
+        let invoiceUrl;
+
+        try {
+          invoiceUrl = await uploadToSupabase(
+            pdfPath,
+            `booking-invoice-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+        } catch (uploadError) {
+          console.warn("Supabase upload failed:", uploadError.message);
+          invoiceUrl = pdfPath;
+        }
+
+        // Save invoice URL
+        booking.invoice = invoiceUrl;
+        await booking.save();
+
+        // Send email
+        await sendBookingInvoiceEmail({
+          email: populatedUser.user.email,
+          bookingId: booking._id,
+          amount: booking.totalPrice,
+          invoiceUrl
+        });
+
+      } catch (err) {
+        console.error("Booking invoice process failed:", err);
+      }
+
+      const populatedBooking = await Booking.findById(booking._id)
+      .populate("user", "firstname lastname email")
+      .populate("holidayPackageId", "packageName uniqueId")
+      .lean();
+
       return res.status(201).json({
         success: true,
         message: "Booking created successfully (old version).",
-        booking,
+        booking: populatedBooking,
         version: "old"
       });
     }
@@ -330,10 +381,57 @@ const createBooking = async (req, res) => {
     const booking = new Booking(bookingData);
     await booking.save();
 
+    try {
+
+      const populatedUser = await booking.populate(
+        "user",
+        "firstname lastname email"
+      );
+
+      // Generate invoice
+      const pdfPath = await generateBookingInvoice({
+        booking,
+        user: populatedUser.user
+      });
+
+      let invoiceUrl;
+
+      try {
+        invoiceUrl = await uploadToSupabase(
+          pdfPath,
+          `booking-invoice-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+      } catch (uploadError) {
+        console.warn("Supabase upload failed:", uploadError.message);
+        invoiceUrl = pdfPath;
+      }
+
+      // Save invoice URL
+      booking.invoice = invoiceUrl;
+      await booking.save();
+
+      // Send email
+      await sendBookingInvoiceEmail({
+        email: populatedUser.user.email,
+        bookingId: booking._id,
+        amount: booking.totalPrice,
+        invoiceUrl
+      });
+
+    } catch (err) {
+      console.error("Booking invoice process failed:", err);
+    }
+
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate("user", "firstname lastname email")
+      .populate("holidayPackageId", "packageName uniqueId")
+      .lean();
+
     return res.status(201).json({
       success: true,
       message: "Booking created successfully.",
-      booking,
+      booking: populatedBooking,
       version: "new"
     });
 
@@ -482,7 +580,7 @@ const createExperienceBooking = async (req, res) => {
         totalTraveller,
         pickupCharge:
           pickupType &&
-          experience.travelling_facility?.[pickupType]?.price
+            experience.travelling_facility?.[pickupType]?.price
             ? experience.travelling_facility[pickupType].price
             : 0,
         finalPrice
@@ -492,10 +590,57 @@ const createExperienceBooking = async (req, res) => {
     const booking = new Booking(bookingData);
     await booking.save();
 
+    try {
+
+      const populatedUser = await booking.populate(
+        "user",
+        "firstname lastname email"
+      );
+
+      // Generate invoice
+      const pdfPath = await generateBookingInvoice({
+        booking,
+        user: populatedUser.user
+      });
+
+      let invoiceUrl;
+
+      try {
+        invoiceUrl = await uploadToSupabase(
+          pdfPath,
+          `booking-invoice-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+      } catch (uploadError) {
+        console.warn("Supabase upload failed:", uploadError.message);
+        invoiceUrl = pdfPath;
+      }
+
+      // Save invoice URL
+      booking.invoice = invoiceUrl;
+      await booking.save();
+
+      // Send email
+      await sendBookingInvoiceEmail({
+        email: populatedUser.user.email,
+        bookingId: booking._id,
+        amount: booking.totalPrice,
+        invoiceUrl
+      });
+
+    } catch (err) {
+      console.error("Booking invoice process failed:", err);
+    }
+
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate("user", "firstname lastname email")
+      .populate("holidayPackageId", "packageName uniqueId")
+      .lean();
+
     return res.status(201).json({
       success: true,
       message: "Experience booking created successfully.",
-      booking
+      booking: populatedBooking
     });
 
   } catch (error) {
@@ -509,4 +654,4 @@ const createExperienceBooking = async (req, res) => {
 };
 
 
-module.exports = { createBooking,createExperienceBooking };
+module.exports = { createBooking, createExperienceBooking };

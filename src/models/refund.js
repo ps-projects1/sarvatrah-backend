@@ -4,7 +4,6 @@ const refundSchema = new mongoose.Schema(
   {
     refundId: {
       type: String,
-      required: true,
       unique: true,
     },
 
@@ -37,6 +36,9 @@ const refundSchema = new mongoose.Schema(
       required: true,
       min: 0,
       max: 100,
+    },
+    invoice: {
+      type: String
     },
 
     reason: {
