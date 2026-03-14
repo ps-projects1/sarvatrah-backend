@@ -168,6 +168,30 @@ const createBooking = async (req, res) => {
       const booking = new Booking(bookingData);
       await booking.save();
 
+      /* =====================
+         PARTIAL PAYMENT LOGIC
+      ===================== */
+
+      if (holidayPackage?.partialPayment) {
+
+        const dueDays = holidayPackage.partialPaymentDueDays || 0;
+        const percentage = holidayPackage.partialPaymentPercentage || 0;
+
+        const partialAmount = (finalPrice * percentage) / 100;
+
+        booking.partialPayment = true;
+        booking.partialPaymentDueDays = dueDays;
+        booking.partialPaymentPercentage = percentage;
+
+        booking.partialAmount = partialAmount;
+
+        booking.partialPaymentDueDate = new Date(
+          Date.now() + dueDays * 24 * 60 * 60 * 1000
+        );
+
+        await booking.save();
+      }
+
       try {
 
         const populatedUser = await booking.populate(
@@ -420,7 +444,7 @@ const createBooking = async (req, res) => {
         invoiceUrl
       });
 
-      const admin = await Admin.findOne({userRole:1}).select("email");
+      const admin = await Admin.findOne({ userRole: 1 }).select("email");
 
       // Send email to super admin
       if (admin && admin.email) {

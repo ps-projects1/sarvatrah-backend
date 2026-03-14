@@ -178,6 +178,9 @@ const holidayPackageSchema = new dbs.Schema(
       max: 100,
       default: 0,
     },
+    partialPaymentDueDate: { type: Date },
+partialReminderSent: { type: Boolean, default: false },
+finalReminderSent: { type: Boolean, default: false },
     cancellationPolicyType: {
       type: String,
       enum: ["refundble", "non-refundble"],

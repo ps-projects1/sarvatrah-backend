@@ -115,6 +115,7 @@ app.use("/api/pilgrimagePackage", pilgrimageRoutes)
 app.use("/api/footer", footerRoutes);
 app.use("/api/testimonials",testimonials)
 
+require("./src/helper/cron");
 
 
 app.use("/public", express.static(path.join(__dirname, "public")));

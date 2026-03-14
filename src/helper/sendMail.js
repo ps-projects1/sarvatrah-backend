@@ -78,7 +78,7 @@ const sendCredentials = async (
   mail,
   user_id,
   password,
-  callback = () => {}
+  callback = () => { }
 ) => {
   const html = `
     <div style="font-family: Arial, sans-serif;">
@@ -223,6 +223,105 @@ const sendBookingInvoiceEmail = async ({
   });
 };
 
+
+/**
+ * ============================
+ * 💰 Partial Payment Reminder
+ * ============================
+ */
+const sendPartialPaymentReminderEmail = async ({
+  email,
+  guestName,
+  bookingId,
+  amount,
+  dueDate,
+  paymentLink
+}) => {
+
+  const html = `
+  <div style="font-family:Arial">
+
+  <h2>Sarvatrah Payment Reminder</h2>
+
+  <p>Hello <b>${guestName}</b>,</p>
+
+  <p>
+  Your Sarvatrah booking (ID: <b>${bookingId}</b>) is awaiting part payment.
+  </p>
+
+  <p>
+  Amount Due: <b>₹${amount}</b>
+  </p>
+
+  <p>
+  Kindly complete payment by <b>${dueDate}</b> to secure your trip.
+  </p>
+
+  <p>
+  Pay Now:
+  <a href="${paymentLink}">${paymentLink}</a>
+  </p>
+
+  <br/>
+  <p>Regards<br/>Sarvatrah Team</p>
+
+  </div>
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Payment Reminder for Booking ${bookingId}`,
+    html
+  });
+};
+
+
+/**
+ * ============================
+ * ⚠️ Final Payment Reminder
+ * ============================
+ */
+const sendFinalPaymentReminderEmail = async ({
+  email,
+  guestName,
+  bookingId,
+  amount,
+  paymentLink
+}) => {
+
+  const html = `
+  <div style="font-family:Arial">
+
+  <h2>Final Reminder Before Cancellation</h2>
+
+  <p>Hello <b>${guestName}</b>,</p>
+
+  <p>
+  Pending payment of <b>₹${amount}</b> for booking ID <b>${bookingId}</b> is due today.
+  </p>
+
+  <p>
+  To avoid cancellation, please complete payment immediately.
+  </p>
+
+  <p>
+  Pay Now:
+  <a href="${paymentLink}">${paymentLink}</a>
+  </p>
+
+  <br/>
+  <p>Regards<br/>Sarvatrah Team</p>
+
+  </div>
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Final Payment Reminder for Booking ${bookingId}`,
+    html
+  });
+};
+
 /**
  * ============================
  * 📦 Exports
@@ -233,5 +332,8 @@ module.exports = {
   sendCredentials,
   sendOtp,
   sendRefundInvoiceEmail,
-  sendBookingInvoiceEmail
+  sendBookingInvoiceEmail,
+  sendPartialPaymentReminderEmail,
+  sendFinalPaymentReminderEmail
+
 };
