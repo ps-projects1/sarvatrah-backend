@@ -47,12 +47,12 @@ const expirenceSchema = mongoose.Schema({
   },
   video_link: [String],
   img_link: [
-  {
-    filename: String,
-    path: String,
-    mimetype: String
-  }
-]
+    {
+      filename: String,
+      path: String,
+      mimetype: String
+    }
+  ]
   ,
   inclusions: {
     short_des: String,
@@ -144,6 +144,7 @@ const expirenceSchema = mongoose.Schema({
     type: Number,
     default: 2,
   },
+  displayHomepage: { type: Boolean, default: false },
   cancelation_policy: {
     type: String,
     enum: ["free", "paid", "learn more"],

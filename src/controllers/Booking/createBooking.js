@@ -9,6 +9,7 @@ const { calculatePackageCostInternal } = require("./calBooking");
 const generateBookingInvoice = require("../../helper/bookingInvoice");
 const { sendBookingInvoiceEmail } = require("../../helper/sendMail");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
+const Admin = require("../../models/admin");
 
 
 const createBooking = async (req, res) => {
@@ -210,9 +211,9 @@ const createBooking = async (req, res) => {
       }
 
       const populatedBooking = await Booking.findById(booking._id)
-      .populate("user", "firstname lastname email")
-      .populate("holidayPackageId", "packageName uniqueId")
-      .lean();
+        .populate("user", "firstname lastname email")
+        .populate("holidayPackageId", "packageName uniqueId")
+        .lean();
 
       return res.status(201).json({
         success: true,
@@ -418,6 +419,18 @@ const createBooking = async (req, res) => {
         amount: booking.totalPrice,
         invoiceUrl
       });
+
+      const admin = await Admin.findOne({userRole:1}).select("email");
+
+      // Send email to super admin
+      if (admin && admin.email) {
+        await sendBookingInvoiceEmail({
+          email: admin.email,
+          bookingId: booking._id,
+          amount: booking.totalPrice,
+          invoiceUrl
+        });
+      }
 
     } catch (err) {
       console.error("Booking invoice process failed:", err);

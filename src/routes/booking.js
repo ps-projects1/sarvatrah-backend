@@ -7,11 +7,12 @@ const bookingController = require("../controllers/Booking/BookingController");
 const { calculatePackageCost } = require("../controllers/Booking/calBooking");
 const { createPaymentOrder } = require("../controllers/Payment/createOrder");
 const { verifyPayment } = require("../controllers/Payment/verifyPayment");
-const { createBooking,createExperienceBooking } = require("../controllers/Booking/createBooking");
+const { createBooking, createExperienceBooking } = require("../controllers/Booking/createBooking");
 const { getBookingById } = require("../controllers/Booking/getBookingById");
 const { updateBooking } = require("../controllers/Booking/updateBooking");
 const { updateBookingStatus } = require("../controllers/Booking/updateBookingStatus");
 const { getBookingStats } = require("../controllers/Booking/getBookingStats");
+const { cancelBookingByUser } = require("../controllers/Booking/cancelBookingByUser");
 
 // Admin controllers
 const { fetchAllBookings } = require("../controllers/Booking/fetchAllBookings");
@@ -121,6 +122,12 @@ router.put(
   "/:id/status",
   authMiddleware,
   updateBookingStatus
+);
+
+router.put(
+  "/:id/status",
+  authMiddleware,
+  cancelBookingByUser
 );
 
 router.delete(

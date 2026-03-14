@@ -46,6 +46,8 @@ const fetchBookingByUser = async (req, res) => {
       .populate("holidayPackageId")
       .populate("vehicleId")
       .populate("hotelId")
+      .populate("experienceId")
+      .populate("pilgrimagePackageId")
       .skip(skip)
       .limit(limit)
       .lean();
