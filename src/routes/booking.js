@@ -1,5 +1,7 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/authMiddleware");
+const Booking = require("../models/booking");
+
 
 
 // Controllers (direct imports)
@@ -136,6 +138,28 @@ router.post(
   "/:id/request-cancellation",
   authMiddleware,
   requestCancellation
+);
+
+router.get(
+  "/:id/invoice",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const booking = await Booking.findById(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ success: false, message: "Booking not found" });
+      }
+      if (booking.user.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ success: false, message: "Unauthorized" });
+      }
+      if (!booking.invoice) {
+        return res.status(404).json({ success: false, message: "Invoice not available yet" });
+      }
+      return res.json({ success: true, invoiceUrl: booking.invoice });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
 );
 
 router.delete(

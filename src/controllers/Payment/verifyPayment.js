@@ -74,19 +74,41 @@ const verifyPayment = async (req, res) => {
     booking.payment.status = "paid";
     booking.payment.paidAt = new Date();
 
-    booking.status = "Confirmed";
+ booking.status = "Confirmed";
+await booking.save();
 
-    await booking.save();
+try {
+  const generateBookingInvoice = require("../../helper/bookingInvoice");
+  const User = require("../../models/user");
+  const uploadToSupabase = require("../../utils/uploadToSupabase");
 
-    return res.status(200).json({
-      success: true,
-      message: "Payment verified successfully. Booking confirmed.",
-      data: {
-        bookingId: booking._id,
-        paymentId: razorpay_payment_id,
-        status: booking.status,
-      },
-    });
+  const user = await User.findById(booking.user);
+  const pdfPath = await generateBookingInvoice({ booking, user });
+
+  try {
+    const invoiceUrl = await uploadToSupabase(
+      pdfPath,
+      `booking-invoice-${booking._id}.pdf`,
+      "booking-invoices"
+    );
+    booking.invoice = invoiceUrl;
+  } catch {
+    booking.invoice = pdfPath;
+  }
+  await booking.save();
+} catch (err) {
+  console.error("Invoice generation failed:", err);
+}
+
+return res.status(200).json({
+  success: true,
+  message: "Payment verified successfully. Booking confirmed.",
+  data: {
+    bookingId: booking._id,
+    paymentId: razorpay_payment_id,
+    status: booking.status,
+  },
+});
 
   } catch (error) {
     console.error("Verify payment error:", error);
