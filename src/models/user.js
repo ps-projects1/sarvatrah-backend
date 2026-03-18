@@ -23,6 +23,8 @@ const userSchema = new Schema(
 
     mobilenumber: {
       type: Number,
+      unique: true,
+      
     },
 
     profilePicture: {
