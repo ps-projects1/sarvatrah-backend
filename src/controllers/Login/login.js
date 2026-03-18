@@ -161,16 +161,14 @@ const login = async (req, res) => {
       });
     }
 
-    // 🍪 Store OTP token
-    res.cookie("login_otp", otpToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 10 * 60 * 1000,
-      path: "/",
-    });
+   res.cookie("login_otp", otpToken, {
+  httpOnly: true,
+  secure: false,
+  sameSite: "lax",
+  maxAge: 10 * 60 * 1000,
+  path: "/",
+});
 
-    // ❗ CHANGED RESPONSE
     return res.status(200).json({
       success: true,
       message: "OTP sent to your registered mobile number",

@@ -13,6 +13,8 @@ const { updateBooking } = require("../controllers/Booking/updateBooking");
 const { updateBookingStatus } = require("../controllers/Booking/updateBookingStatus");
 const { getBookingStats } = require("../controllers/Booking/getBookingStats");
 const { cancelBookingByUser } = require("../controllers/Booking/cancelBookingByUser");
+const { requestCancellation } = require("../controllers/Booking/requestCancellation");
+
 
 // Admin controllers
 const { fetchAllBookings } = require("../controllers/Booking/fetchAllBookings");
@@ -128,6 +130,12 @@ router.put(
   "/:id/status",
   authMiddleware,
   cancelBookingByUser
+);
+
+router.post(
+  "/:id/request-cancellation",
+  authMiddleware,
+  requestCancellation
 );
 
 router.delete(
