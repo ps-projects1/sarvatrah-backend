@@ -1,5 +1,11 @@
 const Refund = require("../../models/refund");
 const Booking = require("../../models/booking");
+const Razorpay = require("razorpay");
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 const processRefund = async (req, res) => {
   try {
@@ -51,18 +57,18 @@ const processRefund = async (req, res) => {
     switch (action) {
       case 'approve':
         updateData.status = 'approved';
-        
+
         // Update refund percentage if provided
         if (refundPercentage !== undefined && refundPercentage !== refund.refundPercentage) {
           updateData.refundPercentage = refundPercentage;
           updateData.refundAmount = Math.round((refund.originalAmount * refundPercentage) / 100);
         }
-        
+
         // Update booking status to refund approved
         await Booking.findByIdAndUpdate(refund.booking._id, {
           status: 'Refunded'
         });
-        
+
         break;
 
       case 'reject':
@@ -70,19 +76,48 @@ const processRefund = async (req, res) => {
         break;
 
       case 'complete':
-        updateData.status = 'completed';
-        updateData['paymentDetails.refundedAt'] = new Date();
-        
-        // Here you would integrate with payment gateway to process actual refund
-        // For now, we'll simulate it
-        updateData['paymentDetails.refundId'] = `refund_${Date.now()}`;
-        updateData['paymentDetails.refundTransactionId'] = `txn_${Date.now()}`;
-        updateData['paymentDetails.gatewayResponse'] = {
-          status: 'success',
-          message: 'Refund processed successfully',
-          processedAt: new Date()
-        };
-        
+        try {
+          const booking = refund.booking;
+
+          if (!booking?.payment?.paymentId) {
+            throw new Error("Payment ID not found for refund");
+          }
+
+          const refundAmountInPaise = refund.refundAmount * 100;
+
+          const razorpayRefund = await razorpay.payments.refund(
+            booking.payment.paymentId,
+            {
+              amount: refundAmountInPaise,
+              notes: {
+                bookingId: booking._id.toString(),
+                refundId: refund._id.toString(),
+              },
+            }
+          );
+
+          updateData.status = 'completed';
+
+          updateData['paymentDetails.refundId'] = razorpayRefund.id;
+          updateData['paymentDetails.refundTransactionId'] = razorpayRefund.id;
+          updateData['paymentDetails.refundedAt'] = new Date();
+
+          updateData['paymentDetails.gatewayResponse'] = razorpayRefund;
+
+          await Booking.findByIdAndUpdate(booking._id, {
+            "payment.status": "refunded",
+          });
+
+        } catch (err) {
+          console.error("Razorpay refund error:", err);
+
+          updateData.status = 'failed';
+          updateData['paymentDetails.gatewayResponse'] = {
+            status: 'failed',
+            message: err.message,
+          };
+        }
+
         break;
 
       case 'fail':
@@ -101,10 +136,10 @@ const processRefund = async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     )
-    .populate('booking', 'totalPrice startDate endDate status')
-    .populate('user', 'firstname lastname email')
-    .populate('processedBy', 'username email')
-    .lean();
+      .populate('booking', 'totalPrice startDate endDate status')
+      .populate('user', 'firstname lastname email')
+      .populate('processedBy', 'username email')
+      .lean();
 
     // Send notification to user (implement as needed)
     // await sendRefundStatusNotification(updatedRefund);
