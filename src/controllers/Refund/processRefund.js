@@ -12,77 +12,90 @@ const processRefund = async (req, res) => {
     const { id } = req.params;
     const { action, remarks, refundPercentage } = req.body;
 
-    // Validation
-    if (!action || !['approve', 'reject', 'complete', 'fail'].includes(action)) {
+    /* ---------------- VALIDATION ---------------- */
+    if (!action || !["approve", "reject", "complete", "fail"].includes(action)) {
       return res.status(400).json({
         success: false,
-        message: "Valid action is required (approve, reject, complete, fail)"
+        message: "Valid action is required",
       });
     }
 
-    // Check if refund exists
-    const refund = await Refund.findById(id).populate('booking');
+    /* ---------------- FETCH REFUND ---------------- */
+    const refund = await Refund.findById(id).populate("booking");
     if (!refund) {
       return res.status(404).json({
         success: false,
-        message: "Refund not found"
+        message: "Refund not found",
       });
     }
 
-    // Status transition validation
+    /* ---------------- STATUS TRANSITIONS ---------------- */
     const validTransitions = {
-      pending: ['approve', 'reject'],
-      approved: ['complete', 'fail'],
-      processing: ['complete', 'fail'],
+      pending: ["approve", "reject"],
+      approved: ["complete", "fail"],
+      processing: ["complete", "fail"],
       rejected: [],
       completed: [],
-      failed: ['approve'] // Allow re-approval of failed refunds
+      failed: ["approve"], // retry allowed
     };
 
     if (!validTransitions[refund.status].includes(action)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot ${action} refund with status ${refund.status}`
+        message: `Cannot ${action} refund with status ${refund.status}`,
       });
     }
 
-    // Prepare update data
+    /* ---------------- COMMON UPDATE DATA ---------------- */
     const updateData = {
       processedBy: req.user._id,
       processedAt: new Date(),
-      adminRemarks: remarks || refund.adminRemarks
+      adminRemarks: remarks || refund.adminRemarks,
     };
 
-    // Handle different actions
+    /* ---------------- HANDLE ACTIONS ---------------- */
     switch (action) {
-      case 'approve':
-        updateData.status = 'approved';
+      case "approve":
+        updateData.status = "approved";
 
-        // Update refund percentage if provided
-        if (refundPercentage !== undefined && refundPercentage !== refund.refundPercentage) {
+        // update percentage if changed
+        if (
+          refundPercentage !== undefined &&
+          refundPercentage !== refund.refundPercentage
+        ) {
           updateData.refundPercentage = refundPercentage;
-          updateData.refundAmount = Math.round((refund.originalAmount * refundPercentage) / 100);
+          updateData.refundAmount = Math.round(
+            (refund.originalAmount * refundPercentage) / 100
+          );
         }
 
-        // Update booking status to refund approved
-        await Booking.findByIdAndUpdate(refund.booking._id, {
-          status: 'Refunded'
-        });
+        // reset previous failure (for retry)
+        updateData["paymentDetails.gatewayResponse"] = null;
 
         break;
 
-      case 'reject':
-        updateData.status = 'rejected';
+      case "reject":
+        updateData.status = "rejected";
         break;
 
-      case 'complete':
+      case "complete":
         try {
           const booking = refund.booking;
 
+          /* ----------- SAFETY CHECKS ----------- */
           if (!booking?.payment?.paymentId) {
-            throw new Error("Payment ID not found for refund");
+            throw new Error("Payment ID not found");
           }
 
+          if (refund.paymentDetails?.refundId) {
+            throw new Error("Refund already processed");
+          }
+
+          if (booking.payment.status !== "paid") {
+            throw new Error("Cannot refund unpaid booking");
+          }
+
+          /* ----------- CALL RAZORPAY ----------- */
           const refundAmountInPaise = refund.refundAmount * 100;
 
           const razorpayRefund = await razorpay.payments.refund(
@@ -91,71 +104,93 @@ const processRefund = async (req, res) => {
               amount: refundAmountInPaise,
               notes: {
                 bookingId: booking._id.toString(),
-                refundId: refund._id.toString(),
+                refundId: refund.refundId,
               },
             }
           );
 
-          updateData.status = 'completed';
+          /* ----------- VALIDATE RESPONSE ----------- */
+          if (!razorpayRefund || !razorpayRefund.id) {
+            throw new Error("Refund failed at Razorpay");
+          }
 
-          updateData['paymentDetails.refundId'] = razorpayRefund.id;
-          updateData['paymentDetails.refundTransactionId'] = razorpayRefund.id;
-          updateData['paymentDetails.refundedAt'] = new Date();
+          /* ----------- SUCCESS ----------- */
+          updateData.status = "completed";
 
-          updateData['paymentDetails.gatewayResponse'] = razorpayRefund;
+          updateData["paymentDetails.refundId"] = razorpayRefund.id;
+          updateData["paymentDetails.refundTransactionId"] =
+            razorpayRefund.id;
+          updateData["paymentDetails.refundedAt"] = new Date();
 
+          updateData["paymentDetails.gatewayResponse"] = razorpayRefund;
+
+          // ✅ Update booking ONLY on success
           await Booking.findByIdAndUpdate(booking._id, {
+            status: "Refunded",
             "payment.status": "refunded",
           });
 
         } catch (err) {
           console.error("Razorpay refund error:", err);
 
-          updateData.status = 'failed';
-          updateData['paymentDetails.gatewayResponse'] = {
-            status: 'failed',
-            message: err.message,
+          /* ----------- EXTRACT ERROR PROPERLY ----------- */
+          const razorpayError =
+            err?.error?.description ||
+            err?.error?.reason ||
+            err?.message ||
+            "Refund failed";
+
+          updateData.status = "failed";
+
+          updateData["paymentDetails.gatewayResponse"] = {
+            status: "failed",
+            message: razorpayError,
+            raw: err,
           };
         }
 
         break;
 
-      case 'fail':
-        updateData.status = 'failed';
-        updateData['paymentDetails.gatewayResponse'] = {
-          status: 'failed',
-          message: remarks || 'Refund processing failed',
-          failedAt: new Date()
+      case "fail":
+        updateData.status = "failed";
+        updateData["paymentDetails.gatewayResponse"] = {
+          status: "failed",
+          message: remarks || "Refund manually marked as failed",
+          failedAt: new Date(),
         };
         break;
     }
 
-    // Update refund
+    /* ---------------- UPDATE REFUND ---------------- */
     const updatedRefund = await Refund.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     )
-      .populate('booking', 'totalPrice startDate endDate status')
-      .populate('user', 'firstname lastname email')
-      .populate('processedBy', 'username email')
+      .populate("booking", "totalPrice startDate endDate status")
+      .populate("user", "firstname lastname email")
+      .populate("processedBy", "username email")
       .lean();
 
-    // Send notification to user (implement as needed)
-    // await sendRefundStatusNotification(updatedRefund);
+    /* ---------------- FINAL RESPONSE ---------------- */
+    const isSuccess = updatedRefund.status === "completed";
 
-    return res.status(200).json({
-      success: true,
+    return res.status(isSuccess ? 200 : 400).json({
+      success: isSuccess,
       data: updatedRefund,
-      message: `Refund ${action}d successfully`
+      message: isSuccess
+        ? "Refund processed successfully"
+        : updatedRefund?.paymentDetails?.gatewayResponse?.message ||
+          "Refund failed",
     });
 
   } catch (error) {
     console.error("Process Refund Error:", error);
+
     return res.status(500).json({
       success: false,
       message: "Error processing refund",
-      error: error.message
+      error: error.message,
     });
   }
 };
