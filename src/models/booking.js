@@ -132,6 +132,12 @@ const bookingSchema = new Mongoose.Schema(
 
     hotelDetails: hotelDetailsSchema,
 
+    partialPayment: { type: Boolean, default: false },
+partialPaymentPercentage: { type: Number, default: 0 },
+partialPaymentDueDays: { type: Number, default: 0 },
+partialPaymentDueDate: { type: Date },
+partialAmount: { type: Number, default: 0 },
+
   },
   { timestamps: true }
 );

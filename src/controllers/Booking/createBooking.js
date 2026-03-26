@@ -179,17 +179,24 @@ const createBooking = async (req, res) => {
 
         const partialAmount = (booking.totalPrice * percentage) / 100;
 
-        booking.partialPayment = true;
-        booking.partialPaymentDueDays = dueDays;
-        booking.partialPaymentPercentage = percentage;
+      const partialPaymentChosen = req.body.partialPayment === true;
 
-        booking.partialAmount = partialAmount;
+if (holidayPackage?.partialPayment && partialPaymentChosen) {
+  const dueDays = holidayPackage.partialPaymentDueDays || 0;
+  const percentage = holidayPackage.partialPaymentPercentage || 0;
+  const partialAmount = Math.round((booking.totalPrice * percentage) / 100);
 
-        booking.partialPaymentDueDate = new Date(
-          Date.now() + dueDays * 24 * 60 * 60 * 1000
-        );
+  booking.partialPayment = true;
+  booking.partialPaymentDueDays = dueDays;
+  booking.partialPaymentPercentage = percentage;
+  booking.partialAmount = partialAmount;
+  booking.partialPaymentDueDate = new Date(
+    Date.now() + dueDays * 24 * 60 * 60 * 1000
+  );
+  booking.payment.amount = partialAmount;  
 
-        await booking.save();
+  await booking.save();
+}
       }
 
       try {
