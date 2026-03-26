@@ -912,7 +912,7 @@ route.post(
         selectType,
         uniqueId,
         packageType,
-        paymentDueDays,
+        partialPaymentDueDays,
         destinationCity,
         highlights,
         partialPayment,
@@ -1015,7 +1015,7 @@ route.post(
         displayHomepage: displayHomepage === "true",
         partialPayment: partialPayment === "true",
         recommendedPackage: recommendedPackage === "true",
-        paymentDueDays: parseInt(paymentDueDays) || 0,
+        partialPaymentDueDays: parseInt(partialPaymentDueDays) || 0,
         partialPaymentPercentage: parseFloat(partialPaymentPercentage) || 0,
         cancellationPolicyType,
         roomLimit: parseInt(roomLimit) || 1,
@@ -1076,7 +1076,7 @@ route.put(
         selectType,
         uniqueId,
         packageType,
-        paymentDueDays,
+        partialPaymentDueDays,
         destinationCity,
         highlights,
         partialPayment,
@@ -1180,7 +1180,7 @@ route.put(
       packageObj.displayHomepage = displayHomepage === "true";
       packageObj.recommendedPackage = recommendedPackage === "true";
       packageObj.partialPayment = partialPayment === "true";
-      packageObj.paymentDueDays = parseInt(paymentDueDays) || 0;
+      packageObj.partialPaymentDueDays = parseInt(partialPaymentDueDays) || 0;
       packageObj.partialPaymentPercentage = parseFloat(partialPaymentPercentage) || 0;
       packageObj.cancellationPolicyType =
         cancellationPolicyType || packageObj.cancellationPolicyType;

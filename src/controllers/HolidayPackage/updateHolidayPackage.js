@@ -242,9 +242,16 @@ const updateHolidayPackage = async (req, res) => {
     if (startCity !== undefined) existingPackage.startCity = startCity;
     if (parsedItinerary !== undefined) existingPackage.itinerary = parsedItinerary;
     if (parsedVehicles !== undefined) existingPackage.vehiclePrices = parsedVehicles;
+    
 
-    // Save updated package
-    const updatedPackage = await existingPackage.save();
+    console.log("TYPE:", typeof partialPaymentDueDays, "VALUE:", partialPaymentDueDays);
+console.log("PARSED:", parseInt(partialPaymentDueDays));
+existingPackage.partialPaymentDueDays = parseInt(partialPaymentDueDays);
+console.log("ON DOC:", existingPackage.partialPaymentDueDays);
+    console.log("About to save partialPaymentDueDays:", existingPackage.partialPaymentDueDays);
+const updatedPackage = await existingPackage.save();
+console.log("AFTER SAVE:", updatedPackage.partialPaymentDueDays);
+console.log("Saved partialPaymentDueDays:", updatedPackage.partialPaymentDueDays);
 
     return res
       .status(200)

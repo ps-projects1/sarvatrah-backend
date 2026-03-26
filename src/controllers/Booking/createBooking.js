@@ -177,7 +177,7 @@ const createBooking = async (req, res) => {
         const dueDays = holidayPackage.partialPaymentDueDays || 0;
         const percentage = holidayPackage.partialPaymentPercentage || 0;
 
-        const partialAmount = (finalPrice * percentage) / 100;
+        const partialAmount = (booking.totalPrice * percentage) / 100;
 
         booking.partialPayment = true;
         booking.partialPaymentDueDays = dueDays;
