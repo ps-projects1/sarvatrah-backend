@@ -59,7 +59,6 @@ const cancelBookingByUser = async (req, res) => {
        UPDATE STATUS
     ===================== */
     booking.status = "Cancelled";
-    booking.payment.status = "failed";
 
     await booking.save();
 

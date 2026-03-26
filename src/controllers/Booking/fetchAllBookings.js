@@ -61,7 +61,7 @@ const fetchAllBookings = async (req, res) => {
        FETCH BOOKINGS
     ====================== */
     const bookings = await Booking.find(query)
-      .populate("user", "name email")
+      .populate("user", "firstname lastname email mobilenumber")
       .populate({
         path: "holidayPackageId",
         match: type ? { packageType: type } : {},
