@@ -71,7 +71,11 @@ const verifyPayment = async (req, res) => {
     /* ---------------- Payment Success ---------------- */
     booking.payment.paymentId = razorpay_payment_id;
     booking.payment.signature = razorpay_signature;
-    booking.payment.status = "paid";
+    if (booking.partialPayment) {
+      booking.payment.status = "partial";
+    } else {
+      booking.payment.status = "paid";
+    }
     booking.payment.paidAt = new Date();
 
  booking.status = "Confirmed";

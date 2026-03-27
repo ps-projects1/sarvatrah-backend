@@ -30,8 +30,16 @@ cron.schedule("0 9 * * *", async () => {
 
       const diffDays = dueDate.diff(today, "days");
 
-      const partialAmount =
-        (booking.totalPrice * booking.partialPaymentPercentage) / 100;
+      const subTotal = booking.totalPrice || 0;
+
+      const taxPercent = 18;
+      const taxAmount = Math.round((subTotal * taxPercent) / 100);
+
+      const totalWithGST = subTotal + taxAmount;
+
+      const paidAmount = booking.partialAmount || 0;
+
+      const dueAmount = totalWithGST - paidAmount;
 
       const paymentLink = `${process.env.FRONTEND_URL}/payment/${booking._id}`;
 
@@ -45,7 +53,7 @@ cron.schedule("0 9 * * *", async () => {
           email: booking.user.email,
           guestName: booking.user.firstname,
           bookingId: booking._id,
-          amount: partialAmount,
+          amount: dueAmount,
           dueDate: dueDate.format("DD MMM YYYY"),
           paymentLink
         });
@@ -66,7 +74,7 @@ cron.schedule("0 9 * * *", async () => {
           email: booking.user.email,
           guestName: booking.user.firstname,
           bookingId: booking._id,
-          amount: partialAmount,
+          amount: dueAmount,
           paymentLink
         });
 

@@ -241,6 +241,8 @@ const updatePilgrimage = async (req, res) => {
     if (parsedItinerary !== undefined) existingPackage.itinerary = parsedItinerary;
     if (parsedVehicles !== undefined) existingPackage.vehiclePrices = parsedVehicles;
 
+    existingPackage.partialPaymentDueDays = parseInt(partialPaymentDueDays);
+
     // Save updated package
     const updatedPackage = await existingPackage.save();
 

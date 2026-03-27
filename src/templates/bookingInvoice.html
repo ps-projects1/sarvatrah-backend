@@ -1,0 +1,188 @@
+<html>
+<head>
+  <style>
+    body {
+      font-family: Arial;
+      font-size: 12px;
+    }
+
+    .container {
+      border: 1px solid #000;
+      padding: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    td, th {
+      border: 1px solid #000;
+      padding: 6px;
+      vertical-align: top;
+    }
+
+    .no-border {
+      border: none !important;
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: bold;
+      text-align: right;
+    }
+
+    .bold {
+      font-weight: bold;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .small {
+      font-size: 11px;
+    }
+    .left {
+        text-align: left;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <table>
+    <tr>
+      <td style="width:70%">
+        <img src="{{logo}}" style="height:60px;" /><br/>
+
+        <b>Sarvatrah Pvt Ltd</b><br/>
+        Dharamshala, Himachal Pradesh<br/>
+        GSTIN: 02AAPCA6236N1ZE
+      </td>
+
+      <td class="header-title">INVOICE</td>
+    </tr>
+  </table>
+
+  <!-- INVOICE DETAILS -->
+  <table>
+    <tr>
+      <td style="width:50%">
+        Invoice#: <b>{{invoiceId}}</b><br/>
+        Invoice Date: <b>{{invoiceDate}}</b><br/>
+        Terms: Due on Receipt<br/>
+        Due Date: <b>{{dueDate}}</b>
+      </td>
+    </tr>
+  </table>
+
+  <!-- BILL TO -->
+  <table>
+    <tr>
+      <td>
+        <b>Bill To</b><br/><br/>
+
+        <b>{{customerName}}</b><br/>
+        {{customerAddress}}<br/>
+        GSTIN: {{customerGST}}
+      </td>
+    </tr>
+  </table>
+
+  <!-- ITEMS TABLE -->
+  <table>
+    <tr>
+      <th>#</th>
+      <th>Particulars & Description</th>
+      <th>Price</th>
+      <th>Total Amount</th>
+      <th>IGST %</th>
+      <th>Amt</th>
+    </tr>
+
+    <tr>
+      <td>1</td>
+      <td>
+        Hotel Booking<br/>
+        {{travellerName}}<br/>
+        {{packageName}}
+      </td>
+      <td class="right">{{price}}</td>
+      <td class="right">{{subtotal}}</td>
+      <td class="center">-</td>
+      <td class="right">-</td>
+    </tr>
+
+    <tr>
+      <td>2</td>
+      <td>
+        Service Fee<br/>
+        SAC: 998555
+      </td>
+      <td class="right"></td>
+      <td class="right"></td>
+      <td class="center">{{taxPercent}}</td>
+      <td class="right">{{taxAmount}}</td>
+    </tr>
+  </table>
+
+  <!-- TOTAL -->
+  <table>
+    <tr>
+      <td class="left bold">Sub Total</td>
+      <td class="right">{{subtotal}}</td>
+    </tr>
+
+    <tr>
+      <td class="left bold">Tax</td>
+      <td class="right">{{taxAmount}}</td>
+    </tr>
+
+    <tr>
+      <td class="left bold">Total</td>
+      <td class="right">{{total}}</td>
+    </tr>
+
+    <tr>
+      <td class="left bold">Payment Made</td>
+      <td class="right">{{paid}}</td>
+    </tr>
+
+    <tr>
+      <td class="left bold">Balance Due</td>
+      <td class="right">{{balance}}</td>
+    </tr>
+  </table>
+
+  <!-- FOOTER -->
+  <table>
+    <tr>
+      <td style="width:60%">
+        <b>Total In Words</b><br/>
+        {{amountWords}}<br/><br/>
+
+        <b>Account Name:</b> Sarvatrah Pvt Ltd<br/>
+        <b>Bank:</b> HDFC<br/>
+        <b>A/C No:</b> 50200054254912<br/>
+        <b>IFSC:</b> HDFC0000605
+      </td>
+
+      <td class="center">
+        Authorized Signature
+      </td>
+    </tr>
+  </table>
+
+</div>
+
+</body>
+</html>

@@ -11,6 +11,89 @@ const { sendBookingInvoiceEmail } = require("../../helper/sendMail");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
 const Admin = require("../../models/admin");
 
+const Razorpay = require("razorpay");
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+const completePaymentOrder = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.status === "Confirmed" && booking.payment.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking already fully paid",
+      });
+    }
+
+    /* =========================
+       CALCULATE REMAINING AMOUNT
+    ========================= */
+
+    const subTotal = booking.totalPrice || 0;
+    const taxPercent = 18;
+    const taxAmount = Math.round((subTotal * taxPercent) / 100);
+
+    const totalAmount = subTotal + taxAmount;
+
+    const paidAmount = booking.partialAmount || 0;
+
+    const remainingAmount = totalAmount - paidAmount;
+
+    if (remainingAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No pending amount",
+      });
+    }
+
+    /* =========================
+       CREATE ORDER
+    ========================= */
+
+    const order = await razorpay.orders.create({
+      amount: remainingAmount * 100, // in paisa
+      currency: "INR",
+      receipt: `booking_${booking._id}`,
+    });
+
+    /* =========================
+       SAVE ORDER
+    ========================= */
+
+    booking.payment.orderId = order.id;
+    booking.payment.amount = remainingAmount; // 👈 important
+    booking.payment.status = "created";
+
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      order,
+      amount: remainingAmount,
+    });
+
+  } catch (error) {
+    console.error("Create order error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create payment order",
+    });
+  }
+};
 
 const createBooking = async (req, res) => {
   try {
@@ -165,51 +248,42 @@ const createBooking = async (req, res) => {
       if (bookingType === "experience")
         bookingData.experienceId = packageId;
 
+      bookingData.payment.status = "paid";
+
       const booking = new Booking(bookingData);
       await booking.save();
 
       /* =====================
          PARTIAL PAYMENT LOGIC
       ===================== */
-
-      if (holidayPackage?.partialPayment) {
-
-        const dueDays = holidayPackage.partialPaymentDueDays || 0;
-        const percentage = holidayPackage.partialPaymentPercentage || 0;
-
-        const partialAmount = (booking.totalPrice * percentage) / 100;
-
       const partialPaymentChosen = req.body.partialPayment === true;
 
-if (holidayPackage?.partialPayment && partialPaymentChosen) {
-  const dueDays = holidayPackage.partialPaymentDueDays || 0;
-  const percentage = holidayPackage.partialPaymentPercentage || 0;
-  const partialAmount = Math.round((booking.totalPrice * percentage) / 100);
+      if (holidayPackage?.partialPayment && partialPaymentChosen) {
+        const dueDays = holidayPackage.partialPaymentDueDays || 0;
+        const percentage = holidayPackage.partialPaymentPercentage || 0;
+        const partialAmount = Math.round((booking.totalPrice * percentage) / 100);
 
-  booking.partialPayment = true;
-  booking.partialPaymentDueDays = dueDays;
-  booking.partialPaymentPercentage = percentage;
-  booking.partialAmount = partialAmount;
-  booking.partialPaymentDueDate = new Date(
-    Date.now() + dueDays * 24 * 60 * 60 * 1000
-  );
-  booking.payment.amount = partialAmount;  
+        booking.partialPayment = true;
+        booking.partialPaymentDueDays = dueDays;
+        booking.partialPaymentPercentage = percentage;
+        booking.partialAmount = partialAmount;
+        booking.payment.status = "partial";
+        booking.partialPaymentDueDate = new Date(
+          Date.now() + dueDays * 24 * 60 * 60 * 1000
+        );
+        booking.payment.amount = partialAmount;
 
-  await booking.save();
-}
+        await booking.save();
       }
 
       try {
 
-        const populatedUser = await booking.populate(
-          "user",
-          "firstname lastname email"
-        );
+        const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email");
 
         // Generate invoice
         const pdfPath = await generateBookingInvoice({
-          booking,
-          user: populatedUser.user
+          booking: updatedBooking,
+          user: updatedBooking.user
         });
 
         let invoiceUrl;
@@ -231,9 +305,9 @@ if (holidayPackage?.partialPayment && partialPaymentChosen) {
 
         // Send email
         await sendBookingInvoiceEmail({
-          email: populatedUser.user.email,
+          email: updatedBooking.user.email,
           bookingId: booking._id,
-          amount: booking.totalPrice,
+          amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
           invoiceUrl
         });
 
@@ -415,15 +489,12 @@ if (holidayPackage?.partialPayment && partialPaymentChosen) {
 
     try {
 
-      const populatedUser = await booking.populate(
-        "user",
-        "firstname lastname email"
-      );
+      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email");
 
       // Generate invoice
       const pdfPath = await generateBookingInvoice({
-        booking,
-        user: populatedUser.user
+        booking: updatedBooking,
+        user: updatedBooking.user
       });
 
       let invoiceUrl;
@@ -445,9 +516,9 @@ if (holidayPackage?.partialPayment && partialPaymentChosen) {
 
       // Send email
       await sendBookingInvoiceEmail({
-        email: populatedUser.user.email,
+        email: updatedBooking.user.email,
         bookingId: booking._id,
-        amount: booking.totalPrice,
+        amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
         invoiceUrl
       });
 
@@ -458,7 +529,7 @@ if (holidayPackage?.partialPayment && partialPaymentChosen) {
         await sendBookingInvoiceEmail({
           email: admin.email,
           bookingId: booking._id,
-          amount: booking.totalPrice,
+          amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
           invoiceUrl
         });
       }
@@ -635,16 +706,12 @@ const createExperienceBooking = async (req, res) => {
     await booking.save();
 
     try {
-
-      const populatedUser = await booking.populate(
-        "user",
-        "firstname lastname email"
-      );
+      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email");
 
       // Generate invoice
       const pdfPath = await generateBookingInvoice({
-        booking,
-        user: populatedUser.user
+        booking: updatedBooking,
+        user: updatedBooking.user
       });
 
       let invoiceUrl;
@@ -666,9 +733,9 @@ const createExperienceBooking = async (req, res) => {
 
       // Send email
       await sendBookingInvoiceEmail({
-        email: populatedUser.user.email,
+        email: updatedBooking.user.email,
         bookingId: booking._id,
-        amount: booking.totalPrice,
+        amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
         invoiceUrl
       });
 
@@ -698,4 +765,4 @@ const createExperienceBooking = async (req, res) => {
 };
 
 
-module.exports = { createBooking, createExperienceBooking };
+module.exports = { createBooking, createExperienceBooking, completePaymentOrder };

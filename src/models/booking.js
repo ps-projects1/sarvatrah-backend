@@ -76,12 +76,12 @@ const bookingSchema = new Mongoose.Schema(
     vehicleId: {
       type: Mongoose.Schema.Types.ObjectId,
       ref: "vehicles",
-      
+
     },
     hotelId: {
       type: Mongoose.Schema.Types.ObjectId,
       ref: "hotels",
-      
+
     },
     invoice: {
       type: String
@@ -123,7 +123,7 @@ const bookingSchema = new Mongoose.Schema(
 
       status: {
         type: String,
-        enum: ["created", "paid", "failed", "refunded"],
+        enum: ["created", "paid", "failed", "refunded", "partial"],
         default: "created",
       },
 
@@ -133,10 +133,10 @@ const bookingSchema = new Mongoose.Schema(
     hotelDetails: hotelDetailsSchema,
 
     partialPayment: { type: Boolean, default: false },
-partialPaymentPercentage: { type: Number, default: 0 },
-partialPaymentDueDays: { type: Number, default: 0 },
-partialPaymentDueDate: { type: Date },
-partialAmount: { type: Number, default: 0 },
+    partialPaymentPercentage: { type: Number, default: 0 },
+    partialPaymentDueDays: { type: Number, default: 0 },
+    partialPaymentDueDate: { type: Date },
+    partialAmount: { type: Number, default: 0 },
 
   },
   { timestamps: true }

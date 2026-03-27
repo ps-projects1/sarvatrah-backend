@@ -86,6 +86,12 @@ router.post(
   verifyPayment
 );
 
+router.post(
+  "/payment/complete",
+  authMiddleware,
+  bookingController.createBooking.completePaymentOrder
+);
+
 /* =========================
    DELETE BOOKING
 ========================= */
