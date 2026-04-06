@@ -136,7 +136,8 @@ async function calculatePackageCostInternal(body) {
     }
 
     // 4️⃣ FINAL PACKAGE PRICE = Base Package Price + Hotel Cost + Vehicle Cost
-    const finalPackage = basePackagePrice + hotelCost + vehicleFinal;
+    const adults = body.occupancy || body.adults || 1;
+const finalPackage = (basePackagePrice + hotelCost + vehicleFinal) * adults;
 
     // Calculate per day amount for display purposes
     let perDayAmount = undefined;

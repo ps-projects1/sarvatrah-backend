@@ -33,14 +33,33 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    /* ---------------- Status Guard ---------------- */
-    if (booking.status !== "PaymentPending") {
-      return res.status(400).json({
-        success: false,
-        message: "Payment verification not allowed for this booking",
-        currentStatus: booking.status,
-      });
-    }
+    /* ---------------- Status Guard ---------------- 
+    // if (booking.status !== "PaymentPending") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Payment verification not allowed for this booking",
+    //     currentStatus: booking.status,
+    //   });
+    // }
+    */
+
+   console.log("DEBUG booking.status:", booking.status);
+console.log("DEBUG booking.payment.status:", booking.payment?.status);
+
+const isPartialCompletion =
+  booking.status === "Confirmed" &&
+  (booking.payment?.status === "partial" || booking.payment?.status === "created") &&
+  booking.partialPayment === true;
+
+console.log("DEBUG isPartialCompletion:", isPartialCompletion);
+
+if (booking.status !== "PaymentPending" && !isPartialCompletion) {
+  return res.status(400).json({
+    success: false,
+    message: "Payment verification not allowed for this booking",
+    currentStatus: booking.status,
+  });
+}
 
     /* ---------------- Order ID Match ---------------- */
     if (booking.payment?.orderId !== razorpay_order_id) {
@@ -70,15 +89,21 @@ const verifyPayment = async (req, res) => {
 
     /* ---------------- Payment Success ---------------- */
     booking.payment.paymentId = razorpay_payment_id;
-    booking.payment.signature = razorpay_signature;
-    if (booking.partialPayment) {
-      booking.payment.status = "partial";
-    } else {
-      booking.payment.status = "paid";
-    }
-    booking.payment.paidAt = new Date();
+booking.payment.signature = razorpay_signature;
+booking.payment.paidAt = new Date();
 
- booking.status = "Confirmed";
+if (isPartialCompletion) {
+  booking.payment.status = "paid";
+  booking.partialPayment = false;
+  booking.status = "Confirmed";
+} else if (booking.partialPayment) {
+  booking.payment.status = "partial";
+  booking.status = "Confirmed";
+} else {
+  booking.payment.status = "paid";
+  booking.status = "Confirmed";
+}
+
 await booking.save();
 
 try {

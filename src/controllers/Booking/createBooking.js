@@ -20,7 +20,8 @@ const razorpay = new Razorpay({
 
 const completePaymentOrder = async (req, res) => {
   try {
-    const { bookingId } = req.params;
+    // const { bookingId } = req.params;
+    const { bookingId } = req.body;
 
     const booking = await Booking.findById(bookingId);
 
@@ -288,16 +289,20 @@ const createBooking = async (req, res) => {
 
         let invoiceUrl;
 
-        try {
-          invoiceUrl = await uploadToSupabase(
-            pdfPath,
-            `booking-invoice-${booking._id}.pdf`,
-            "booking-invoices"
-          );
-        } catch (uploadError) {
-          console.warn("Supabase upload failed:", uploadError.message);
-          invoiceUrl = pdfPath;
-        }
+       try {
+  console.log("Attempting Supabase upload...");
+  console.log("PDF path:", pdfPath);
+  invoiceUrl = await uploadToSupabase(
+    pdfPath,
+    `booking-invoice-${booking._id}.pdf`,
+    "booking-invoices"
+  );
+  console.log("Upload success, URL:", invoiceUrl);
+} catch (uploadError) {
+  console.error("Supabase upload failed:", uploadError.message);
+  console.error("Full upload error:", uploadError);
+  invoiceUrl = pdfPath;
+}
 
         // Save invoice URL
         booking.invoice = invoiceUrl;
@@ -500,15 +505,19 @@ const createBooking = async (req, res) => {
       let invoiceUrl;
 
       try {
-        invoiceUrl = await uploadToSupabase(
-          pdfPath,
-          `booking-invoice-${booking._id}.pdf`,
-          "booking-invoices"
-        );
-      } catch (uploadError) {
-        console.warn("Supabase upload failed:", uploadError.message);
-        invoiceUrl = pdfPath;
-      }
+  console.log("Attempting Supabase upload...");
+  console.log("PDF path:", pdfPath);
+  invoiceUrl = await uploadToSupabase(
+    pdfPath,
+    `booking-invoice-${booking._id}.pdf`,
+    "booking-invoices"
+  );
+  console.log("Upload success, URL:", invoiceUrl);
+} catch (uploadError) {
+  console.error("Supabase upload failed:", uploadError.message);
+  console.error("Full upload error:", uploadError);
+  invoiceUrl = pdfPath;
+}
 
       // Save invoice URL
       booking.invoice = invoiceUrl;
@@ -717,15 +726,19 @@ const createExperienceBooking = async (req, res) => {
       let invoiceUrl;
 
       try {
-        invoiceUrl = await uploadToSupabase(
-          pdfPath,
-          `booking-invoice-${booking._id}.pdf`,
-          "booking-invoices"
-        );
-      } catch (uploadError) {
-        console.warn("Supabase upload failed:", uploadError.message);
-        invoiceUrl = pdfPath;
-      }
+  console.log("Attempting Supabase upload...");
+  console.log("PDF path:", pdfPath);
+  invoiceUrl = await uploadToSupabase(
+    pdfPath,
+    `booking-invoice-${booking._id}.pdf`,
+    "booking-invoices"
+  );
+  console.log("Upload success, URL:", invoiceUrl);
+} catch (uploadError) {
+  console.error("Supabase upload failed:", uploadError.message);
+  console.error("Full upload error:", uploadError);
+  invoiceUrl = pdfPath;
+}
 
       // Save invoice URL
       booking.invoice = invoiceUrl;

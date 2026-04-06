@@ -23,12 +23,22 @@ async function uploadToSupabase(localFilePath, originalName, folder = "uploads",
     console.log(`[Supabase] Unique name: ${uniqueName}`);
 
     // Upload to Supabase storage
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(uniqueName, fileBuffer, {
-        upsert: true,
-        contentType: `image/${ext.replace(".", "")}`
-      });
+    const mimeTypes = {
+  ".pdf": "application/pdf",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
+
+const contentType = mimeTypes[ext.toLowerCase()] || "application/octet-stream";
+
+const { data, error } = await supabase.storage
+  .from(bucketName)
+  .upload(uniqueName, fileBuffer, {
+    upsert: true,
+    contentType
+  });
 
     if (error) {
       console.error("[Supabase] Upload error:", error);

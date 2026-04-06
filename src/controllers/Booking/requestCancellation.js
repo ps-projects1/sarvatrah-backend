@@ -50,7 +50,7 @@ const requestCancellation = async (req, res) => {
     const refundAmount = Math.round((booking.totalPrice * refundPercentage) / 100);
 
     booking.status = "Cancelled";
-    booking.payment.status = "failed";
+    // booking.payment.status = "failed";
     await booking.save();
 
     const refund = await Refund.create({
