@@ -70,9 +70,13 @@ exports.getAllTestimonials = async (req, res) => {
 // Get Published (Public API)
 exports.getPublishedTestimonials = async (req, res) => {
   try {
-    const testimonials = await Testimonial.find({ isPublished: true }).sort({
+    const testimonials = await Testimonial.find({
+      isPublished: true,
+      rating: { $gt: 3.5 }
+    }).sort({
       createdAt: -1,
     });
+
     res.json({ success: true, data: testimonials });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

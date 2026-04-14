@@ -279,7 +279,7 @@ const createBooking = async (req, res) => {
 
       try {
 
-        const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email");
+        const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId");
 
         // Generate invoice
         const pdfPath = await generateBookingInvoice({
@@ -494,7 +494,7 @@ const createBooking = async (req, res) => {
 
     try {
 
-      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email");
+      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId");
 
       // Generate invoice
       const pdfPath = await generateBookingInvoice({
@@ -715,7 +715,7 @@ const createExperienceBooking = async (req, res) => {
     await booking.save();
 
     try {
-      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email");
+      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId");
 
       // Generate invoice
       const pdfPath = await generateBookingInvoice({

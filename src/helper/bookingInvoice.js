@@ -35,6 +35,77 @@ const generateBookingInvoice = async ({ booking, user }) => {
     const balanceAmount = totalAmount - paidAmount;
     const amountWords = toWords.toWords(totalAmount).replace(/,/g, "") + " only";
 
+    const packageData = booking.holidayPackageId || {};
+    const itinerary = packageData.itinerary || [];
+
+    // Format dates
+    const startDate = moment(booking.startDate).format("DD MMM YYYY");
+    const endDate = moment(booking.endDate).format("DD MMM YYYY");
+
+    // Rooms
+    const rooms = booking.hotelDetails?.occupancy || "N/A";
+    const roomType = booking.hotelDetails?.roomType || "N/A";
+
+    // Travellers count
+    const totalPeople = booking.totalTraveller;
+
+    // Build itinerary HTML
+    let itineraryHtml = "";
+
+    itinerary.forEach((day) => {
+      const city = day.city?.name || "";
+      const state = day.state?.name || "";
+
+      // Activities HTML
+      let activitiesHtml = "";
+      if (day.activities && day.activities.length > 0) {
+        activitiesHtml = "<ul>";
+        day.activities.forEach((act) => {
+          activitiesHtml += `<li>
+            <b>${act.title}</b> (${act.type}) - ${act.description || ""}
+          </li>`;
+        });
+        activitiesHtml += "</ul>";
+      }
+
+      // Meals (ONLY IF EXISTS)
+      let mealsHtml = "";
+      if (day.mealsIncluded && day.mealsIncluded.length > 0) {
+        mealsHtml = `<br/><small><b>Meals:</b> ${day.mealsIncluded.join(", ")}</small>`;
+      }
+
+      itineraryHtml += `
+        <tr>
+          <td style="width:15%"><b>Day ${day.dayNo}</b></td>
+          <td>
+            <b>${day.title || ""}</b><br/>
+            <small>${city}${city && state ? ", " : ""}${state}</small>
+            ${mealsHtml}
+            <br/>
+            ${activitiesHtml}
+          </td>
+        </tr>
+      `;
+    });
+
+    const pkg = booking.holidayPackageId || {};
+
+    const packageName = pkg.packageName || "N/A";
+    const duration = pkg.packageDuration
+      ? `${pkg.packageDuration.days} Days / ${pkg.packageDuration.nights} Nights`
+      : "N/A";
+
+    const packageType = pkg.packageType || "N/A";
+
+    const destinations = (pkg.destinationCity || []).join(", ") || "N/A";
+
+    const formatText = (text) =>
+      text ? text.replace(/\n/g, "<br/>") : "N/A";
+
+    const highlights = formatText(pkg.highlights) || "N/A";
+    const includes = formatText(pkg.include) || "N/A";
+    const excludes = formatText(pkg.exclude) || "N/A";
+
     const templateData = {
       invoiceId: booking._id,
       invoiceDate: moment(booking.createdAt).format("DD/MM/YYYY"),
@@ -65,6 +136,24 @@ const generateBookingInvoice = async ({ booking, user }) => {
       travellerName: leadTraveller?.name || "",
       amountWords: amountWords,
       logo: logoUrl,
+
+      startDate,
+      endDate,
+      totalPeople,
+      rooms,
+      roomType,
+
+      itinerary: itineraryHtml,
+
+      leadTravellerName: leadTraveller?.name || "",
+
+      packageName,
+      duration,
+      packageType,
+      destinations,
+      highlights,
+      includes,
+      excludes,
     };
 
     Object.keys(templateData).forEach((key) => {
