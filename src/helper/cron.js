@@ -96,4 +96,4 @@ cron.schedule("0 3 * * 0", async () => {
   await syncGoogleReviews();
 });
 
-syncGoogleReviews();
+// syncGoogleReviews();
