@@ -279,7 +279,11 @@ const createBooking = async (req, res) => {
 
       try {
 
-        const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId");
+        const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId")
+          .populate("pilgrimagePackageId")
+          .populate("experienceId")
+          .populate("hotelId")
+          .populate("vehicleId");
 
         // Generate invoice
         const pdfPath = await generateBookingInvoice({
@@ -289,30 +293,29 @@ const createBooking = async (req, res) => {
 
         let invoiceUrl;
 
-       try {
-  console.log("Attempting Supabase upload...");
-  console.log("PDF path:", pdfPath);
-  invoiceUrl = await uploadToSupabase(
-    pdfPath,
-    `booking-invoice-${booking._id}.pdf`,
-    "booking-invoices"
-  );
-  console.log("Upload success, URL:", invoiceUrl);
-} catch (uploadError) {
-  console.error("Supabase upload failed:", uploadError.message);
-  console.error("Full upload error:", uploadError);
-  invoiceUrl = pdfPath;
-}
+        try {
+          console.log("Attempting Supabase upload...");
+          console.log("PDF path:", pdfPath);
+          invoiceUrl = await uploadToSupabase(
+            pdfPath,
+            `booking-invoice-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+          console.log("Upload success, URL:", invoiceUrl);
+        } catch (uploadError) {
+          console.error("Supabase upload failed:", uploadError.message);
+          console.error("Full upload error:", uploadError);
+          invoiceUrl = pdfPath;
+        }
 
         // Save invoice URL
         booking.invoice = invoiceUrl;
         await booking.save();
 
         // Send email
-        await sendBookingInvoiceEmail({
+        sendBookingInvoiceEmail({
           email: updatedBooking.user.email,
-          bookingId: booking._id,
-          amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
+          booking: updatedBooking,
           invoiceUrl
         });
 
@@ -494,7 +497,11 @@ const createBooking = async (req, res) => {
 
     try {
 
-      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId");
+      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId")
+        .populate("pilgrimagePackageId")
+        .populate("experienceId")
+        .populate("hotelId")
+        .populate("vehicleId");
 
       // Generate invoice
       const pdfPath = await generateBookingInvoice({
@@ -505,29 +512,28 @@ const createBooking = async (req, res) => {
       let invoiceUrl;
 
       try {
-  console.log("Attempting Supabase upload...");
-  console.log("PDF path:", pdfPath);
-  invoiceUrl = await uploadToSupabase(
-    pdfPath,
-    `booking-invoice-${booking._id}.pdf`,
-    "booking-invoices"
-  );
-  console.log("Upload success, URL:", invoiceUrl);
-} catch (uploadError) {
-  console.error("Supabase upload failed:", uploadError.message);
-  console.error("Full upload error:", uploadError);
-  invoiceUrl = pdfPath;
-}
+        console.log("Attempting Supabase upload...");
+        console.log("PDF path:", pdfPath);
+        invoiceUrl = await uploadToSupabase(
+          pdfPath,
+          `booking-invoice-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+        console.log("Upload success, URL:", invoiceUrl);
+      } catch (uploadError) {
+        console.error("Supabase upload failed:", uploadError.message);
+        console.error("Full upload error:", uploadError);
+        invoiceUrl = pdfPath;
+      }
 
       // Save invoice URL
       booking.invoice = invoiceUrl;
       await booking.save();
 
       // Send email
-      await sendBookingInvoiceEmail({
+      sendBookingInvoiceEmail({
         email: updatedBooking.user.email,
-        bookingId: booking._id,
-        amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
+        booking: updatedBooking,
         invoiceUrl
       });
 
@@ -535,10 +541,9 @@ const createBooking = async (req, res) => {
 
       // Send email to super admin
       if (admin && admin.email) {
-        await sendBookingInvoiceEmail({
+        sendBookingInvoiceEmail({
           email: admin.email,
-          bookingId: booking._id,
-          amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
+          booking: updatedBooking,
           invoiceUrl
         });
       }
@@ -715,7 +720,11 @@ const createExperienceBooking = async (req, res) => {
     await booking.save();
 
     try {
-      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId");
+      const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId")
+        .populate("pilgrimagePackageId")
+        .populate("experienceId")
+        .populate("hotelId")
+        .populate("vehicleId");
 
       // Generate invoice
       const pdfPath = await generateBookingInvoice({
@@ -726,29 +735,28 @@ const createExperienceBooking = async (req, res) => {
       let invoiceUrl;
 
       try {
-  console.log("Attempting Supabase upload...");
-  console.log("PDF path:", pdfPath);
-  invoiceUrl = await uploadToSupabase(
-    pdfPath,
-    `booking-invoice-${booking._id}.pdf`,
-    "booking-invoices"
-  );
-  console.log("Upload success, URL:", invoiceUrl);
-} catch (uploadError) {
-  console.error("Supabase upload failed:", uploadError.message);
-  console.error("Full upload error:", uploadError);
-  invoiceUrl = pdfPath;
-}
+        console.log("Attempting Supabase upload...");
+        console.log("PDF path:", pdfPath);
+        invoiceUrl = await uploadToSupabase(
+          pdfPath,
+          `booking-invoice-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+        console.log("Upload success, URL:", invoiceUrl);
+      } catch (uploadError) {
+        console.error("Supabase upload failed:", uploadError.message);
+        console.error("Full upload error:", uploadError);
+        invoiceUrl = pdfPath;
+      }
 
       // Save invoice URL
       booking.invoice = invoiceUrl;
       await booking.save();
 
       // Send email
-      await sendBookingInvoiceEmail({
+      sendBookingInvoiceEmail({
         email: updatedBooking.user.email,
-        bookingId: booking._id,
-        amount: updatedBooking.payment?.amount || updatedBooking.totalPrice,
+        booking: updatedBooking,
         invoiceUrl
       });
 

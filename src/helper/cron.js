@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const moment = require("moment");
 const Booking = require("../models/booking");
+const syncGoogleReviews = require("./syncGoogleReviews");
 
 const {
   sendPartialPaymentReminderEmail,
@@ -89,3 +90,10 @@ cron.schedule("0 9 * * *", async () => {
     console.error("❌ Partial Payment Cron Error:", error);
   }
 });
+
+cron.schedule("0 3 * * 0", async () => {
+  console.log("Running Google Review Sync...");
+  await syncGoogleReviews();
+});
+
+// syncGoogleReviews();
