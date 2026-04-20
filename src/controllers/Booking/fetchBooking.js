@@ -52,6 +52,38 @@ const fetchBookingByUser = async (req, res) => {
       .limit(limit)
       .lean();
 
+for (const booking of bookings) {
+  if (booking.holidayPackageId?.itinerary) {
+    const startDate = new Date(booking.startDate);
+
+    const hotelIds = [...new Set(
+      booking.holidayPackageId.itinerary
+        .flatMap(day => day.hotels || [])
+        .filter(h => h.hotel_id)
+        .map(h => h.hotel_id.toString())
+    )];
+
+    const hotelsFromDb = await hotelCollection.find({ _id: { $in: hotelIds } }).lean();
+    const hotelMap = Object.fromEntries(hotelsFromDb.map(h => [h._id.toString(), h]));
+
+    booking.holidayPackageId.hotels = booking.holidayPackageId.itinerary
+      .filter(day => day.stay)
+      .map(day => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + (day.dayNo - 1));
+        const dayHotel = day.hotels?.[0];
+        const hotelDetail = dayHotel ? hotelMap[dayHotel.hotel_id.toString()] : null;
+        return {
+          date: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          city: day.city?.name || dayHotel?.city || '',
+          hotelName: hotelDetail?.hotelName || dayHotel?.hotelName || 'TBD',
+          roomCategory: booking.roomType || 'Standard',
+        };
+      });
+  }
+}
+
+
     if (!bookings || bookings.length === 0) {
       return res.status(404).json({
         success: false,
