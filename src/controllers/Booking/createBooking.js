@@ -274,8 +274,8 @@ const percentage = activePackage.partialPaymentPercentage || 0;
         booking.partialAmount = partialAmount;
         booking.payment.status = "partial";
         booking.partialPaymentDueDate = new Date(
-          Date.now() + dueDays * 24 * 60 * 60 * 1000
-        );
+  new Date(startDate).getTime() - dueDays * 24 * 60 * 60 * 1000
+);
         booking.payment.amount = partialAmount;
 
         await booking.save();
