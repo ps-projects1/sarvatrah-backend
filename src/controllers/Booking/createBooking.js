@@ -696,6 +696,8 @@ const createExperienceBooking = async (req, res) => {
       bookingType: "experience",
       experienceId,
       travelDate,
+      startDate: travelDate,   
+  endDate: travelDate,
       startTimeId,
       totalTraveller,
       totalPrice: finalPrice,
