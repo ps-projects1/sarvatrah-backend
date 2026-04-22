@@ -217,6 +217,9 @@ const createBooking = async (req, res) => {
         message: "Total travellers count mismatch."
       });
 
+      console.log("bookingType:", bookingType);
+console.log("packageId:", packageId);
+
     /* =====================================================
        OLD VERSION — CLIENT PROVIDED PRICE
     ===================================================== */
@@ -259,9 +262,10 @@ const createBooking = async (req, res) => {
       ===================== */
       const partialPaymentChosen = req.body.partialPayment === true;
 
-      if (holidayPackage?.partialPayment && partialPaymentChosen) {
-        const dueDays = holidayPackage.partialPaymentDueDays || 0;
-        const percentage = holidayPackage.partialPaymentPercentage || 0;
+      const activePackage = holidayPackage || pilgrimagePackage;
+if (activePackage?.partialPayment && partialPaymentChosen) {
+   const dueDays = activePackage.partialPaymentDueDays || 0;
+const percentage = activePackage.partialPaymentPercentage || 0;
         const partialAmount = Math.round((booking.totalPrice * percentage) / 100);
 
         booking.partialPayment = true;
