@@ -7,6 +7,7 @@ const { vehicleCollection } = require("../../models/vehicle");
 const User = require("../../models/user");
 const { calculatePackageCostInternal } = require("./calBooking");
 const generateBookingInvoice = require("../../helper/bookingInvoice");
+const {generateVoucherPDF, generateItineraryPDF} = require("../../helper/bookingPDFs");
 const { sendBookingInvoiceEmail } = require("../../helper/sendMail");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
 const Admin = require("../../models/admin");
@@ -295,17 +296,40 @@ const percentage = activePackage.partialPaymentPercentage || 0;
           user: updatedBooking.user
         });
 
+        const voucherPdfPath = await generateVoucherPDF({
+          booking: updatedBooking,
+          user: updatedBooking.user
+        });
+
+        const ItineraryPdfPath = await generateItineraryPDF({
+          booking: updatedBooking,
+          user: updatedBooking.user
+        });
+
         let invoiceUrl;
+        let voucherPdfUrl;
+        let ItineraryPdfUrl;
 
         try {
-          console.log("Attempting Supabase upload...");
-          console.log("PDF path:", pdfPath);
+
           invoiceUrl = await uploadToSupabase(
             pdfPath,
             `booking-invoice-${booking._id}.pdf`,
             "booking-invoices"
           );
-          console.log("Upload success, URL:", invoiceUrl);
+
+          voucherPdfUrl = await uploadToSupabase(
+            voucherPdfPath,
+            `booking-voucher-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+
+          ItineraryPdfUrl = await uploadToSupabase(
+            ItineraryPdfPath,
+            `booking-itinerary-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+          
         } catch (uploadError) {
           console.error("Supabase upload failed:", uploadError.message);
           console.error("Full upload error:", uploadError);
@@ -320,7 +344,9 @@ const percentage = activePackage.partialPaymentPercentage || 0;
         sendBookingInvoiceEmail({
           email: updatedBooking.user.email,
           booking: updatedBooking,
-          invoiceUrl
+          invoiceUrl,
+          voucherPdfUrl,
+          ItineraryPdfUrl
         });
 
       } catch (err) {
@@ -513,17 +539,39 @@ const percentage = activePackage.partialPaymentPercentage || 0;
         user: updatedBooking.user
       });
 
+      const voucherPdfPath = await generateVoucherPDF({
+        booking: updatedBooking,
+        user: updatedBooking.user
+      });
+
+      const ItineraryPdfPath = await generateItineraryPDF({
+        booking: updatedBooking,
+        user: updatedBooking.user
+      });
+
       let invoiceUrl;
+      let voucherPdfUrl;
+      let ItineraryPdfUrl;
 
       try {
-        console.log("Attempting Supabase upload...");
-        console.log("PDF path:", pdfPath);
         invoiceUrl = await uploadToSupabase(
           pdfPath,
           `booking-invoice-${booking._id}.pdf`,
           "booking-invoices"
         );
-        console.log("Upload success, URL:", invoiceUrl);
+
+        voucherPdfUrl = await uploadToSupabase(
+          voucherPdfPath,
+          `booking-voucher-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+
+        ItineraryPdfUrl = await uploadToSupabase(
+          ItineraryPdfPath,
+          `booking-itinerary-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+
       } catch (uploadError) {
         console.error("Supabase upload failed:", uploadError.message);
         console.error("Full upload error:", uploadError);
@@ -538,7 +586,9 @@ const percentage = activePackage.partialPaymentPercentage || 0;
       sendBookingInvoiceEmail({
         email: updatedBooking.user.email,
         booking: updatedBooking,
-        invoiceUrl
+        invoiceUrl,
+        voucherPdfUrl,
+        ItineraryPdfUrl
       });
 
       const admin = await Admin.findOne({ userRole: 1 }).select("email");
@@ -548,7 +598,9 @@ const percentage = activePackage.partialPaymentPercentage || 0;
         sendBookingInvoiceEmail({
           email: admin.email,
           booking: updatedBooking,
-          invoiceUrl
+          invoiceUrl,
+          voucherPdfUrl,
+          ItineraryPdfUrl
         });
       }
 
@@ -738,17 +790,39 @@ const createExperienceBooking = async (req, res) => {
         user: updatedBooking.user
       });
 
+      const voucherPdfPath = await generateVoucherPDF({
+        booking: updatedBooking,
+        user: updatedBooking.user
+      });
+
+      const ItineraryPdfPath = await generateItineraryPDF({
+        booking: updatedBooking,
+        user: updatedBooking.user
+      });
+
       let invoiceUrl;
+      let voucherPdfUrl;
+      let ItineraryPdfUrl;
 
       try {
-        console.log("Attempting Supabase upload...");
-        console.log("PDF path:", pdfPath);
         invoiceUrl = await uploadToSupabase(
           pdfPath,
           `booking-invoice-${booking._id}.pdf`,
           "booking-invoices"
         );
-        console.log("Upload success, URL:", invoiceUrl);
+
+        voucherPdfUrl = await uploadToSupabase(
+          voucherPdfPath,
+          `booking-voucher-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+
+        ItineraryPdfUrl = await uploadToSupabase(
+          ItineraryPdfPath,
+          `booking-itinerary-${booking._id}.pdf`,
+          "booking-invoices"
+        );
+
       } catch (uploadError) {
         console.error("Supabase upload failed:", uploadError.message);
         console.error("Full upload error:", uploadError);
@@ -763,7 +837,9 @@ const createExperienceBooking = async (req, res) => {
       sendBookingInvoiceEmail({
         email: updatedBooking.user.email,
         booking: updatedBooking,
-        invoiceUrl
+        invoiceUrl,
+        voucherPdfUrl,
+        ItineraryPdfUrl
       });
 
     } catch (err) {

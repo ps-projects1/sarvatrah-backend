@@ -45,53 +45,58 @@ async function calculatePackageCostInternal(body) {
     }
 
     // 2️⃣ HOTEL COST
-    if (hotel_id) {
-      if (!roomType || !startDate || !endDate || !occupancy) {
-        throw new Error("Hotel calculation requires roomType, startDate, endDate, occupancy.");
+    if (packageId && occupancy) {
+
+      let pkg = null;
+
+      if (holidayPackageId) {
+        pkg = await HolidayPackage.findById(holidayPackageId)
+          .populate("itinerary.hotel_id");
+      } else if (pilgrimagePackageId) {
+        pkg = await Pilgrimage.findById(pilgrimagePackageId)
+          .populate("itinerary.hotel_id");
       }
 
-      const hotel = await hotelCollection.findById(hotel_id);
-      if (!hotel) throw new Error("Hotel not found");
-     
+      if (!pkg) throw new Error("Package not found");
 
       const normalize = (str) =>
         str.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-      const room = hotel.rooms.find(
-        r => normalize(r.roomType) === normalize(roomType)
-      );
+      let totalHotelCost = 0;
 
-      if (!room) throw new Error(`Room type ${roomType} not found in this hotel`);
+      for (const day of pkg.itinerary) {
 
-      // Check room availability - if duration is configured, validate dates
-      if (room.duration && room.duration.length > 0) {
-        const available = room.duration.some((d) => {
-          return (
-            new Date(startDate) >= new Date(d.startDate) &&
-            new Date(endDate) <= new Date(d.endDate)
-          );
-        });
+        // ✅ USE SELECTED HOTEL
+        const hotel = day.hotel_id;
 
-        if (!available) {
-          throw new Error("Room is not available for selected dates");
+        if (!hotel) continue; // skip if no stay that day
+
+        const room = hotel.rooms.find(
+          r => normalize(r.roomType) === normalize(roomType)
+        );
+
+        if (!room) {
+          throw new Error(`Room type ${roomType} not found in hotel ${hotel.hotelName}`);
         }
+
+        const occupancyRate = room.occupancyRates[occupancy - 1];
+
+        if (!occupancyRate) {
+          throw new Error(`Invalid occupancy for hotel ${hotel.hotelName}`);
+        }
+
+        let childTotal = 0;
+
+        if (childWithBed) childTotal += room.child.childWithBedPrice;
+        if (childWithoutBed) childTotal += room.child.childWithoutBedPrice;
+
+        const perDayAmount = occupancyRate + childTotal;
+
+        // ✅ ADD PER DAY (NOT MULTIPLY)
+        totalHotelCost += perDayAmount;
       }
 
-      console.log("room.occupancyRates: ", room.occupancyRates);
-      console.log("occupancy: ", occupancy - 1);
-
-      const occupancyRate = room.occupancyRates[occupancy - 1];
-      console.log("occupancyRate: ", occupancyRate);
-      if (!occupancyRate) throw new Error("Invalid occupancy selected");
-
-      let childTotal = 0;
-
-      
-      if (childWithBed == true) childTotal += room.child.childWithBedPrice;
-      if (childWithoutBed == true) childTotal += room.child.childWithoutBedPrice;
-
-      const perDayAmount = occupancyRate + childTotal;
-      hotelCost = perDayAmount * days;
+      hotelCost = totalHotelCost;
     }
 
     // 3️⃣ VEHICLE COST + BASE PACKAGE PRICE
@@ -120,11 +125,11 @@ async function calculatePackageCostInternal(body) {
 
 
 
-  const vehicleData =
-  pkg.availableVehicle?.find(v => v.vehicle_id == vehicleId) ||
-  pkg.vehiclePrices?.find(v => v.vehicle_id == vehicleId);
+      const vehicleData =
+        pkg.availableVehicle?.find(v => v.vehicle_id == vehicleId) ||
+        pkg.vehiclePrices?.find(v => v.vehicle_id == vehicleId);
 
-if (!vehicleData) throw new Error("Vehicle not available in this package");
+      if (!vehicleData) throw new Error("Vehicle not available in this package");
 
       const vehicle = await vehicleCollection.findById(vehicleId);
 
@@ -145,7 +150,7 @@ if (!vehicleData) throw new Error("Vehicle not available in this package");
 
     // 4️⃣ FINAL PACKAGE PRICE = Base Package Price + Hotel Cost + Vehicle Cost
     const adults = body.occupancy || body.adults || 1;
-const finalPackage = (basePackagePrice + hotelCost + vehicleFinal) * adults;
+    const finalPackage = (basePackagePrice + hotelCost + vehicleFinal) * adults;
 
     // Calculate per day amount for display purposes
     let perDayAmount = undefined;

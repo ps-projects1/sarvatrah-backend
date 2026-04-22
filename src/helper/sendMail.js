@@ -189,7 +189,9 @@ const sendRefundInvoiceEmail = async ({
 const sendBookingInvoiceEmail = async ({
   email,
   booking,
-  invoiceUrl
+  invoiceUrl,
+  voucherPdfUrl,
+  ItineraryPdfUrl
 }) => {
 
   const formatDate = (date) =>
@@ -373,28 +375,6 @@ const sendBookingInvoiceEmail = async ({
                     </p>
                   </div>
 
-                  <!-- COST -->
-                  <div style="border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px">
-                    <h3 style="margin:0 0 15px;font-size:16px;font-weight:600">
-                      Cost Breakdown
-                    </h3>
-
-                    <table width="100%" style="font-size:14px">
-                      <tr>
-                        <td style="padding:6px 0;color:#6b7280">Hotel</td>
-                        <td align="right">₹${booking.costBreakup?.hotelCost || 0}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:6px 0;color:#6b7280">Vehicle</td>
-                        <td align="right">₹${booking.costBreakup?.vehicleCost || 0}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:6px 0;color:#6b7280">Markup</td>
-                        <td align="right">₹${booking.costBreakup?.priceMarkup || 0}</td>
-                      </tr>
-                    </table>
-                  </div>
-
                   <!-- CTA -->
                   <div style="text-align:center;margin-top:30px">
                     <a href="${invoiceUrl}"
@@ -429,7 +409,12 @@ const sendBookingInvoiceEmail = async ({
   return await sendEmail({
     to: email,
     subject: `Booking Confirmation - ${booking._id}`,
-    html
+    html,
+    attachments: [
+      { filename: "Invoice.pdf", path: invoiceUrl },
+      { filename: "Voucher.pdf", path: voucherPdfUrl },
+      { filename: "Itinerary.pdf", path: ItineraryPdfUrl }
+    ]
   });
 };
 
@@ -449,38 +434,113 @@ const sendPartialPaymentReminderEmail = async ({
 }) => {
 
   const html = `
-  <div style="font-family:Arial">
+  <div style="background:#eef2f7;padding:40px 0;font-family:Arial,Helvetica,sans-serif">
 
-  <h2>Sarvatrah Payment Reminder</h2>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
 
-  <p>Hello <b>${guestName}</b>,</p>
+          <!-- MAIN CONTAINER -->
+          <table width="760" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden">
 
-  <p>
-  Your Sarvatrah booking (ID: <b>${bookingId}</b>) is awaiting part payment.
-  </p>
+            <!-- HEADER -->
+            <tr>
+              <td style="background:#0a2540;padding:28px 32px;color:#ffffff">
+                <table width="100%">
+                  <tr>
+                    <td>
+                      <img src="https://vcrngnmxatijvigekyvc.supabase.co/storage/v1/object/public/logo/logo.png" height="36"/>
+                    </td>
+                    <td align="right" style="font-size:13px;color:#cbd5e1">
+                      Booking ID<br/>
+                      <b style="color:#ffffff">${bookingId}</b>
+                    </td>
+                  </tr>
+                </table>
 
-  <p>
-  Amount Due: <b>₹${amount}</b>
-  </p>
+                <h1 style="margin:22px 0 6px;font-size:22px;font-weight:600">
+                  Payment Reminder
+                </h1>
+                <p style="margin:0;font-size:14px;color:#cbd5e1">
+                  Complete your payment to secure your booking
+                </p>
+              </td>
+            </tr>
 
-  <p>
-  Kindly complete payment by <b>${dueDate}</b> to secure your trip.
-  </p>
+            <!-- BODY -->
+            <tr>
+              <td style="padding:30px 32px">
 
-  <p>
-  Pay Now:
-  <a href="${paymentLink}">${paymentLink}</a>
-  </p>
+                <!-- GREETING -->
+                <p style="font-size:14px;margin-bottom:20px">
+                  Hello <b>${guestName}</b>,
+                </p>
 
-  <br/>
-  <p>Regards<br/>Sarvatrah Team</p>
+                <p style="font-size:14px;margin-bottom:20px;color:#374151">
+                  Your booking with <b>Sarvatrah</b> is awaiting a pending payment.
+                  Please complete it before the due date to avoid cancellation.
+                </p>
+
+                <!-- PAYMENT CARD -->
+                <div style="border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin-bottom:20px;background:#f8fafc">
+                  
+                  <table width="100%">
+                    <tr>
+                      <td>
+                        <div style="font-size:12px;color:#6b7280">Amount Due</div>
+                        <div style="font-size:22px;font-weight:700;color:#dc2626">
+                          ₹${amount}
+                        </div>
+                      </td>
+
+                      <td align="right">
+                        <div style="font-size:12px;color:#6b7280">Due Date</div>
+                        <div style="font-size:16px;font-weight:600">
+                          ${dueDate}
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                </div>
+
+                <!-- CTA BUTTON -->
+                <div style="text-align:center;margin-top:30px">
+                  <a href="${paymentLink}"
+                    style="background:#0a2540;color:#ffffff;padding:14px 30px;
+                    text-decoration:none;border-radius:6px;font-weight:600;display:inline-block">
+                    Pay Now
+                  </a>
+                </div>
+
+                <!-- NOTE -->
+                <p style="font-size:13px;color:#6b7280;margin-top:25px;text-align:center">
+                  If you’ve already completed the payment, please ignore this email.
+                </p>
+
+              </td>
+            </tr>
+
+            <!-- FOOTER -->
+            <tr>
+              <td style="background:#f3f4f6;padding:18px;text-align:center;font-size:12px;color:#6b7280">
+                Need help? Contact our support team<br/>
+                © Sarvatrah Pvt Ltd
+              </td>
+            </tr>
+
+          </table>
+
+        </td>
+      </tr>
+    </table>
 
   </div>
   `;
 
   return await sendEmail({
     to: email,
-    subject: `Payment Reminder for Booking ${bookingId}`,
+    subject: `Payment Reminder - Booking ${bookingId}`,
     html
   });
 };
