@@ -333,6 +333,27 @@ const pilgrimagePackageDetails = async (req, res) => {
 
     packagePrice = packagePrice + priceMarkup - inflatedPercentage;
 
+    // Populate hotel_id on itinerary days if not set
+if (Array.isArray(pilgrimagePackages.itinerary)) {
+  pilgrimagePackages.itinerary = pilgrimagePackages.itinerary.map(day => {
+    if (day.stay && !day.hotel_id && Array.isArray(day.hotels) && day.hotels.length > 0) {
+      return {
+        ...day,
+        hotel_id: String(day.hotels[0].hotel_id),
+      };
+    }
+    return day;
+  });
+}
+
+// Populate hotel_id on itinerary days from hotels array
+pilgrimagePackages.itinerary = pilgrimagePackages.itinerary.map(day => {
+  if (day.stay && !day.hotel_id && Array.isArray(day.hotels) && day.hotels.length > 0) {
+    return { ...day, hotel_id: String(day.hotels[0].hotel_id) };
+  }
+  return day;
+});
+
     const responseData = {
       ...pilgrimagePackages,
       packagePrice,

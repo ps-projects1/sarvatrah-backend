@@ -112,11 +112,19 @@ async function calculatePackageCostInternal(body) {
       // Get base package price
       basePackagePrice = pkg.basePrice || 0;
 
-      const vehicleData = pkg.availableVehicle.find(
-        (v) => v.vehicle_id == vehicleId
-      );
+      // const vehicleData = pkg.availableVehicle.find(
+      //   (v) => v.vehicle_id == vehicleId
+      // );
 
-      if (!vehicleData) throw new Error("Vehicle not available in this package");
+      // if (!vehicleData) throw new Error("Vehicle not available in this package");
+
+
+
+  const vehicleData =
+  pkg.availableVehicle?.find(v => v.vehicle_id == vehicleId) ||
+  pkg.vehiclePrices?.find(v => v.vehicle_id == vehicleId);
+
+if (!vehicleData) throw new Error("Vehicle not available in this package");
 
       const vehicle = await vehicleCollection.findById(vehicleId);
 
