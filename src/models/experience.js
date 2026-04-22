@@ -145,11 +145,19 @@ const expirenceSchema = mongoose.Schema({
     default: 2,
   },
   displayHomepage: { type: Boolean, default: false },
-  cancelation_policy: {
-    type: String,
-    enum: ["free", "paid", "learn more"],
-    default: "learn more",
-  },
+ cancelation_policy: {
+  type: String,
+  enum: ["free", "paid", "learn more"],
+  default: "learn more",
+},
+policyDescription: {
+  type: String,
+  default: "",
+},
+availableLanguages: {
+  type: [String],
+  default: [],
+},
 });
 
 const Experience = mongoose.model("Experience", expirenceSchema);
