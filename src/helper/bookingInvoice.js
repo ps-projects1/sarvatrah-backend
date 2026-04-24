@@ -106,10 +106,22 @@ const generateBookingInvoice = async ({ booking, user }) => {
     const includes = formatText(pkg.include) || "N/A";
     const excludes = formatText(pkg.exclude) || "N/A";
 
+    let dueDateBlock = "";
+
+    if (
+      booking.partialPayment &&
+      booking.payment?.status !== "paid" &&
+      booking.partialPaymentDueDate
+    ) {
+      dueDateBlock = `
+        <br/>
+        Due Date: <b>${moment(booking.partialPaymentDueDate).format("DD MMM YYYY")}</b>
+      `;
+    }
+
     const templateData = {
       invoiceId: booking._id,
       invoiceDate: moment(booking.createdAt).format("DD/MM/YYYY"),
-      dueDate: moment(booking.createdAt).format("DD/MM/YYYY"),
 
       place: billing.state || "N/A",
 
@@ -156,9 +168,12 @@ const generateBookingInvoice = async ({ booking, user }) => {
       excludes,
     };
 
+    html = html.replace("{{DUE_DATE_BLOCK}}", dueDateBlock);
+
     Object.keys(templateData).forEach((key) => {
       html = html.replace(new RegExp(`{{${key}}}`, "g"), templateData[key]);
     });
+    
 
     /* =========================
        LAUNCH BROWSER (AUTO SWITCH)
