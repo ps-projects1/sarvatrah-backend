@@ -67,6 +67,6 @@ const hotelSchema = dbs.Schema(
 );
 
 const Category = dbs.model("category", categorySchema);
-const hotelCollection = dbs.model("hotels", hotelSchema);
+const hotelCollection = dbs.model("Hotel", hotelSchema);
 
 module.exports = { hotelCollection, Category };
