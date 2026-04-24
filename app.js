@@ -56,7 +56,8 @@ const allowedOrigins = [
   "http://127.0.0.1:5173",
   "https://sarvatrah-frontend.vercel.app",
   "https://sarvatrah-admin.vercel.app",
-  "https://sarvatrah-admin-k9qze72es-sarvatrahs-projects.vercel.app"
+  "https://sarvatrah-admin-k9qze72es-sarvatrahs-projects.vercel.app",
+  "https://sarvatrah-frontend-ivory.vercel.app",
 ];
 
 app.use(
