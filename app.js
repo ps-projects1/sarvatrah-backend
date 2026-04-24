@@ -58,6 +58,7 @@ const allowedOrigins = [
   "https://sarvatrah-admin.vercel.app",
   "https://sarvatrah-admin-k9qze72es-sarvatrahs-projects.vercel.app",
   "https://sarvatrah-frontend-ivory.vercel.app",
+  "https://sarvatrah-admin-mocha.vercel.app",
 ];
 
 app.use(
