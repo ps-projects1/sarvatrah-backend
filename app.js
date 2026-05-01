@@ -1,5 +1,5 @@
 const express = require("express");
-const logger = require("morgan");
+// const logger = require("morgan");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
@@ -85,7 +85,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json({ limit: "50mb" }));
 app.use(cookieParser());
-app.use(logger("dev"));
+// app.use(logger("dev"));
 app.use(express.static("public"));
 
 // Routes
