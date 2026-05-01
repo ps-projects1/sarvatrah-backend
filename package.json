@@ -41,10 +41,11 @@
     "puppeteer-core": "^24.40.0",
     "razorpay": "^2.9.6",
     "twilio": "^5.11.1",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "morgan": "^1.10.1"
   },
   "devDependencies": {
-    "morgan": "^1.10.0",
+    "morgan": "^1.10.1",
     "nodemo": "^1.0.0"
   }
 }
