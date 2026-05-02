@@ -163,8 +163,8 @@ const login = async (req, res) => {
 
    res.cookie("login_otp", otpToken, {
   httpOnly: true,
-  secure: false,
-  sameSite: "lax",
+  secure: true,
+  sameSite: "none",
   maxAge: 10 * 60 * 1000,
   path: "/",
 });

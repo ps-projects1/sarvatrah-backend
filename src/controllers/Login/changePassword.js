@@ -56,8 +56,8 @@ const changePassword = async (req, res) => {
       // Clear the cookie after successful password change
       res.clearCookie("resetPassToken", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: true,
+        sameSite: "none",
         path: "/",
       });
 

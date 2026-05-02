@@ -75,8 +75,8 @@ const register = async (req, res) => {
     // Set OTP JWT in cookie
     res.cookie("register_otp", otpToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: true,
+      sameSite: "none",
       maxAge: 10 * 60 * 1000,   // 10 minutes
       path: "/",
     }); 

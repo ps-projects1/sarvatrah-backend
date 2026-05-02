@@ -85,8 +85,8 @@ const resendOtp = async (req, res) => {
     // 🍪 Reset the same cookie with new token
     res.cookie(cookieName, newToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: true,
+      sameSite: "none",
       maxAge: 10 * 60 * 1000, // 10 minutes
       path: "/",
     });

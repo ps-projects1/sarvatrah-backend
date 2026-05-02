@@ -42,8 +42,8 @@ const verifyOtp = async (req, res) => {
     // Clear the register OTP cookie
     res.clearCookie("register_otp", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: true,
+      sameSite: "none",
       path: "/",
     });
 

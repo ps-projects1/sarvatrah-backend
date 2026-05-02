@@ -51,8 +51,8 @@ const forgotPassword = async (req, res) => {
     // 🍪 Set OTP token in cookie
     res.cookie("resetPassToken", resetToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: true,
+      sameSite: "none",
       maxAge: 10 * 60 * 1000, // 10 minutes
       path: "/",
     });
