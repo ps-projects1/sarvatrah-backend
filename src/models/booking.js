@@ -12,7 +12,7 @@ const travellerSchema = new Mongoose.Schema({
 });
 
 const hotelDetailsSchema = new Mongoose.Schema({
-  hotelId: { type: Mongoose.Schema.Types.ObjectId, ref: "hotels" },
+  hotelId: { type: Mongoose.Schema.Types.ObjectId, ref: "Hotel" },
   roomType: { type: String },
   occupancy: { type: Number }, // 1, 2, 3
   childWithBed: { type: Boolean, default: false },
@@ -80,7 +80,7 @@ const bookingSchema = new Mongoose.Schema(
     },
     hotelId: {
       type: Mongoose.Schema.Types.ObjectId,
-      ref: "hotels",
+      ref: "Hotel",
 
     },
     invoice: {
