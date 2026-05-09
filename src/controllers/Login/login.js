@@ -146,6 +146,9 @@ const login = async (req, res) => {
       { expiresIn: "10m" }
     );
 
+    console.log("Generated OTP:", otp); // For testing purposes only
+    console.log("OTP Token:", otpToken); // For testing purposes only
+
     // 📱 Send OTP
     const formattedPhone = user.mobilenumber.toString().startsWith('+')
       ? user.mobilenumber.toString()

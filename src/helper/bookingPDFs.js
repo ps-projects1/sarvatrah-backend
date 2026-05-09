@@ -8,17 +8,50 @@ const chromium = require("@sparticuz/chromium");
 const puppeteerCore = require("puppeteer-core");
 
 const generatePDF = async (html, filename) => {
-  const browser = await puppeteer.launch({ headless: true });
+  let browser;
+
+  if (process.env.NODE_ENV === "development") {
+    // 👉 LOCAL
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: puppeteer.executablePath(),
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+      ],
+      timeout: 60000,
+    });
+  } else {
+    // 👉 RENDER / PRODUCTION
+    browser = await puppeteerCore.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+
   const page = await browser.newPage();
 
   await page.setContent(html, { waitUntil: "networkidle0" });
 
-  const filePath = `/tmp/${filename}`;
+  const filePath =
+    process.env.NODE_ENV === "production"
+      ? `/tmp/${filename}` // Render uses ephemeral storage
+      : path.join(__dirname, `../invoices/${filename}`);
+
+  if (process.env.NODE_ENV !== "production") {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
 
   await page.pdf({
     path: filePath,
     format: "A4",
-    printBackground: true
+    printBackground: true,
   });
 
   await browser.close();
