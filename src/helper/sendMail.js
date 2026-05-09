@@ -9,15 +9,13 @@ const moment = require("moment");
  */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER_AUTH,
-    pass: process.env.EMAIL_PASSWORD_AUTH,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    rejectUnauthorized: true,
-  },
+  connectionTimeout: 10000, // 👈 force fast fail
 });
 
 /**
@@ -41,6 +39,15 @@ const sendEmail = async ({
   attachments = [],
 }) => {
   try {
+
+    transporter.verify((err, success) => {
+      if (err) {
+        console.log("❌ SMTP ERROR:", err);
+      } else {
+        console.log("✅ SMTP READY");
+      }
+    });
+
     const info = await transporter.sendMail({
       from,
       to,
