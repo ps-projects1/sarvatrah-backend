@@ -4,6 +4,7 @@ const loginController = require("../controllers/Login/loginController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const { loginVerifyOtp } = require("../controllers/Login/loginVerifyOtp");
 const { requestLoginOtp } = require("../controllers/Login/requestLoginOtp");
+const User = require("../models/user");
 
 router.post("/login", loginController.login.login);
 router.post("/register", loginController.register.register);
@@ -15,4 +16,35 @@ router.put("/logout", authMiddleware, loginController.logout.logout);
 router.get("/resend-otp", loginController.resendOtp.resendOtp);
 router.post("/login/verify-otp", loginVerifyOtp);
 router.post("/login/request-otp", requestLoginOtp);
+
+router.put("/update-user-email-temp", async (req, res) => {
+  try {
+
+    const updatedUser = await User.findByIdAndUpdate(
+      "69f2ef48bcb042183d57d97e",
+      { email: "anmol.batti23@gmail.com" },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Email updated successfully",
+      data: updatedUser,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
 module.exports = router;

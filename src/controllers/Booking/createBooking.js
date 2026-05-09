@@ -342,7 +342,9 @@ const percentage = activePackage.partialPaymentPercentage || 0;
 
         // Send email
         sendBookingInvoiceEmail({
-          email: updatedBooking.user.email,
+          email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
+          .filter(Boolean)
+          .join(","),
           booking: updatedBooking,
           invoiceUrl,
           voucherPdfUrl,
@@ -584,7 +586,9 @@ const percentage = activePackage.partialPaymentPercentage || 0;
 
       // Send email
       sendBookingInvoiceEmail({
-        email: updatedBooking.user.email,
+        email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
+        .filter(Boolean)
+        .join(","),
         booking: updatedBooking,
         invoiceUrl,
         voucherPdfUrl,
@@ -835,7 +839,9 @@ const createExperienceBooking = async (req, res) => {
 
       // Send email
       sendBookingInvoiceEmail({
-        email: updatedBooking.user.email,
+        email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
+        .filter(Boolean)
+        .join(","),
         booking: updatedBooking,
         invoiceUrl,
         voucherPdfUrl,
