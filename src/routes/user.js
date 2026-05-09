@@ -5,6 +5,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const { loginVerifyOtp } = require("../controllers/Login/loginVerifyOtp");
 const { requestLoginOtp } = require("../controllers/Login/requestLoginOtp");
 const User = require("../models/user");
+const { sendEmail } = require("../helper/sendMail");
 
 router.post("/login", loginController.login.login);
 router.post("/register", loginController.register.register);
@@ -46,5 +47,34 @@ router.put("/update-user-email-temp", async (req, res) => {
     });
   }
 });
+
+router.get("/test-email-temp", async (req, res) => {
+  try {
+    
+    const testEmail = "anmol.batti23@yopmail.com";
+
+    const result = await sendEmail({
+      to: testEmail,
+      subject: "Test Email from Render",
+      html: `
+        <h2>Test Email Working ✅</h2>
+        <p>If you received this, your email service is working.</p>
+        <p>Time: ${new Date().toISOString()}</p>
+      `,
+    });
+
+    return res.json({
+      success: true,
+      result,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
 
 module.exports = router;
