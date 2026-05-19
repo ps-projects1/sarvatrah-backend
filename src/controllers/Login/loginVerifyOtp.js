@@ -5,8 +5,8 @@ require("dotenv").config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const loginVerifyOtp = async (req, res) => {
-  const { otp: userOtp, token } = req.body;
-  // const token = req.cookies.login_otp;
+  const { otp: userOtp } = req.body;
+  const token = req.cookies.login_otp;
 
   if (!token) {
     return res.status(401).json({
