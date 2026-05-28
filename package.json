@@ -40,6 +40,7 @@
     "puppeteer": "^24.40.0",
     "puppeteer-core": "^24.40.0",
     "razorpay": "^2.9.6",
+    "rrule": "^2.8.1",
     "twilio": "^5.11.1",
     "uuid": "^9.0.0"
   },

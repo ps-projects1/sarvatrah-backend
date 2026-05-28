@@ -1,6 +1,9 @@
 require("dotenv").config();
 const nodemailer = require("nodemailer");
 const moment = require("moment");
+const {
+  GST_PERCENT,
+} = require("../config/taxConfig");
 
 /**
  * ============================
@@ -208,7 +211,23 @@ const sendBookingInvoiceEmail = async ({
       year: "numeric",
     });
 
-  const pendingAmount = booking.totalPrice - (booking.payment?.amount || 0);
+  const subTotal =
+    booking.totalPrice || 0;
+
+  const taxAmount = Math.round(
+    (subTotal * GST_PERCENT) / 100
+  );
+
+  const grandTotal =
+    subTotal + taxAmount;
+
+  const paidAmount =
+    booking.payment?.paidAmount ||
+    booking.payment?.amount ||
+    0;
+
+  const pendingAmount =
+    grandTotal - paidAmount;
 
   const itineraryPreview = booking.holidayPackageId?.itinerary
     ?.slice(0, 4)

@@ -6,6 +6,13 @@ const pricingModel = require("../models/pricing.model");
 const timeAvailabilityModel = require("../models/timing_availablity.model");
 const eventCalenderModel = require("../models/experienceEvent.model");
 const uploadToSupabase = require("../utils/uploadToSupabase");
+const { RRule } = require("rrule");
+const {
+  resolveCalendarRange,
+} = require("../utils/calendarResolver");
+
+
+
 const { path } = require("../../app");
 /** 
  * Creates an initial experience.
@@ -170,35 +177,82 @@ const calenderEvent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid Experience ID" });
+    if (
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
+      return res.status(400).json({
+        error: "Invalid Experience ID",
+      });
     }
 
-    const experience = await experienceModel.findById(id);
+    const experience =
+      await experienceModel.findById(id);
+
     if (!experience) {
-      return res.status(404).json({ error: "Experience not found" });
+      return res.status(404).json({
+        error: "Experience not found",
+      });
     }
 
-    const eventData = req.body;  // single event object from frontend
+    const body = req.body;
 
-    // Inject experienceId
-    eventData.experienceId = id;
+    // AUTO WEEKEND RRULE
+    if (body.includeWeekends) {
+      body.rrule = {
+        freq: "weekly",
 
-    // SAVE event
-    const savedEvent = await eventCalenderModel.create(eventData);
-   
-    // Attach to experience
-    if (!experience.calender_events) experience.calender_events = [];
-    experience.calender_events.push(savedEvent._id);
+        interval: 1,
 
-   await experience.save({ validateModifiedOnly: true });
+        byweekday: ["sa", "su"],
 
+        dtstart:
+          body.rrule?.dtstart ||
+          new Date(),
 
-    return res.status(200).json(savedEvent);
+        until:
+          body.rrule?.until ||
+          new Date(
+            new Date().getFullYear(),
+            11,
+            31
+          ),
+      };
+    }
 
+    body.experienceId = id;
+
+    const savedEvent =
+      await eventCalenderModel.create(
+        body
+      );
+
+    if (
+      !experience.calender_events
+    ) {
+      experience.calender_events = [];
+    }
+
+    experience.calender_events.push(
+      savedEvent._id
+    );
+
+    await experience.save({
+      validateModifiedOnly: true,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: savedEvent,
+    });
   } catch (error) {
-    console.log("ERROR in addCalendarEvent:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.log(
+      "ERROR in calenderEvent:",
+      error
+    );
+
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };
 
@@ -306,26 +360,53 @@ const deleteExperience = async (req, res) => {
  * @return {Object} The retrieved experience as a JSON response.
  */
 const getExperience = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  // Validate ID (same logic, new layout)
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid id" });
+    if (
+      !id ||
+      !mongoose.Types.ObjectId.isValid(id)
+    ) {
+      return res.status(400).json({
+        error: "Invalid id",
+      });
+    }
+
+    const experience =
+      await experienceModel
+        .findById(id)
+        .populate("category_theme")
+        .populate("meeting_point")
+        .populate("availability_detail")
+        .populate("pricing")
+        .populate("start_time")
+        .populate("calender_events");
+
+    if (!experience) {
+      return res.status(404).json({
+        error: "Experience not found",
+      });
+    }
+
+    // RESOLVE NEXT 12 MONTHS
+    const resolvedCalendar =
+      await resolveCalendarRange(
+        experience.calender_events,
+        365
+      );
+
+    return res.status(200).json({
+      ...experience.toObject(),
+
+      resolvedCalendar,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      error: error.message,
+    });
   }
-
-  // Rewritten structure: same result, different code
-  const experienceQuery = experienceModel
-    .findById(id)
-    .populate("category_theme")
-    .populate("meeting_point")
-    .populate("availability_detail")
-    .populate("pricing")
-    .populate("start_time")
-    .populate("calender_events");
-
-  const experience = await experienceQuery;
-
-  return res.status(200).json(experience);
 };
 
 

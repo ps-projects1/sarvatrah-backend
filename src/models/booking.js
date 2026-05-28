@@ -118,7 +118,35 @@ const bookingSchema = new Mongoose.Schema(
       paymentId: { type: String },     // Razorpay payment_id
       signature: { type: String },     // Razorpay signature
 
-      amount: { type: Number },        // amount in rupees
+      subtotal: {
+        type: Number,
+        default: 0,
+      },
+
+      taxAmount: {
+        type: Number,
+        default: 0,
+      },
+
+      totalAmount: {
+        type: Number,
+        default: 0,
+      },
+
+      paidAmount: {
+        type: Number,
+        default: 0,
+      },
+
+      pendingAmount: {
+        type: Number,
+        default: 0,
+      },
+
+      amount: {
+        type: Number,
+        default: 0,
+      },
       currency: { type: String, default: "INR" },
 
       status: {

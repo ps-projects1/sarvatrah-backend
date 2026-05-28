@@ -7,6 +7,10 @@ const puppeteer = require("puppeteer");
 const chromium = require("@sparticuz/chromium");
 const puppeteerCore = require("puppeteer-core");
 
+const {
+  GST_PERCENT,
+} = require("../config/taxConfig");
+
 const generateBookingInvoice = async ({ booking, user }) => {
   try {
     /* =========================
@@ -23,17 +27,31 @@ const generateBookingInvoice = async ({ booking, user }) => {
 
     const billing = booking.billingInfo || {};
 
-    const paidAmount = booking.payment?.amount || 0;
-    const subTotal = booking.totalPrice || 0;
+    const paidAmount =
+      booking.payment?.paidAmount ||
+      booking.payment?.amount ||
+      0;
 
-    const taxPercent = 18;
-    const taxAmount = Math.round((subTotal * taxPercent) / 100);
+    const subTotal =
+      booking.totalPrice || 0;
 
-    const totalAmount = subTotal + taxAmount;
+    const taxPercent = GST_PERCENT;
 
-    // ✅ Correct calculation
-    const balanceAmount = totalAmount - paidAmount;
-    const amountWords = toWords.toWords(totalAmount).replace(/,/g, "") + " only";
+    const taxAmount = Math.round(
+      (subTotal * taxPercent) / 100
+    );
+
+    const totalAmount =
+      subTotal + taxAmount;
+
+    const balanceAmount =
+      totalAmount - paidAmount;
+
+    const amountWords =
+      toWords
+        .toWords(totalAmount)
+        .replace(/,/g, "") +
+      " only";
 
     const packageData = booking.holidayPackageId || {};
     const itinerary = packageData.itinerary || [];
@@ -141,7 +159,7 @@ const generateBookingInvoice = async ({ booking, user }) => {
       taxPercent: `${taxPercent}%`,
       taxAmount: taxAmount,
 
-      total: totalAmount + taxAmount,
+      total: totalAmount,
       paid: paidAmount,
       balance: balanceAmount,
 
@@ -173,7 +191,7 @@ const generateBookingInvoice = async ({ booking, user }) => {
     Object.keys(templateData).forEach((key) => {
       html = html.replace(new RegExp(`{{${key}}}`, "g"), templateData[key]);
     });
-    
+
 
     /* =========================
        LAUNCH BROWSER (AUTO SWITCH)

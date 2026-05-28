@@ -1,66 +1,3 @@
-/* const mongoose = require("mongoose"); */
-
-/**
- too save calender events 
- recurring events
- single events
- */
-
-/* const eventSchema = new mongoose.Schema({
-  event: mongoose.Schema.Types.Mixed,
-}); */
-
-/* module.exports = mongoose.model("EventCalender", eventSchema); */
-
-/**
-  startDate: { type: Date, default: Date.now },
-  endDate: { type: Date },
-  start_time: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "TimingAvailability",
-  },
-  recurring: {
-    type: String,
-    enum: [
-      "weekly",
-      "specific_date",
-      "between_two_dates",
-      "monthly_selected_days",
-    ],
-    default: "specific_date",
-  },
-  recurringDetails: {
-    daysOfWeek: [
-      {
-        type: String,
-        enum: [
-          "Sunday",
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-        ],
-      },
-    ],
-    startDate: { type: Date },
-    endDate: { type: Date },
-    selectedMonth: { type: String },
-    selectedDays: [{ type: Number }],
-    participant: {
-      minimum: {
-        type: Number,
-        default: 1,
-      },
-      maximum: {
-        type: Number,
-        default: 15,
-      },
-    },
-  },
- */
-
 const mongoose = require("mongoose");
 
 const eventCalendarSchema = new mongoose.Schema({
@@ -70,16 +7,93 @@ const eventCalendarSchema = new mongoose.Schema({
     required: true,
   },
 
-  // recurring, single date, blackout – all share RRULE structure
+  eventType: {
+    type: String,
+    enum: [
+      "availability",
+      "blackout",
+      "pricing_override",
+    ],
+    required: true,
+  },
+
+  title: String,
+
+  // recurrence settings
   rrule: {
-    freq: { type: String },            // weekly / daily / monthly
-    interval: { type: Number, default: 1 },
-    byweekday: [{ type: String }],     // ['mo','tu','we']
-    bymonth: [{ type: Number }],       // [1,3,5]
-    dtstart: { type: String },         // "2025-02-01T09:00"
-    until: { type: String },           // "2025-06-01"
-    count: { type: Number },
-    byhour: [{ type: Number }],        // 9, 11 etc
+    freq: {
+      type: String,
+      enum: ["daily", "weekly", "monthly"],
+    },
+
+    interval: {
+      type: Number,
+      default: 1,
+    },
+
+    byweekday: [
+      {
+        type: String,
+        enum: ["su", "mo", "tu", "we", "th", "fr", "sa"],
+      },
+    ],
+
+    bymonth: [Number],
+
+    dtstart: Date,
+
+    until: Date,
+
+    count: Number,
+  },
+
+  // SINGLE DATE SUPPORT
+  specificDates: [Date],
+
+  // WEEKEND AUTO BLACKOUT
+  includeWeekends: {
+    type: Boolean,
+    default: false,
+  },
+
+  // availability settings
+  isAvailable: {
+    type: Boolean,
+    default: true,
+  },
+
+  // blackout
+  isBlackout: {
+    type: Boolean,
+    default: false,
+  },
+
+  // pricing override
+  priceOverride: {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+
+    amount: Number,
+
+    currency: {
+      type: String,
+      default: "USD",
+    },
+  },
+
+  // capacity override
+  participant: {
+    minimum: {
+      type: Number,
+      default: 1,
+    },
+
+    maximum: {
+      type: Number,
+      default: 100,
+    },
   },
 
   start_time: [
@@ -89,16 +103,11 @@ const eventCalendarSchema = new mongoose.Schema({
     },
   ],
 
-  participant: {
-    minimum: { type: Number, default: 1 },
-    maximum: { type: Number, default: 100 },
-  },
+}, {
+  timestamps: true,
+});
 
-  // For event rendering in FullCalendar
-  title: { type: String },
-
-  isBlackout: { type: Boolean, default: false },
-
-}, { timestamps: true });
-
-module.exports = mongoose.model("EventCalendar", eventCalendarSchema);
+module.exports = mongoose.model(
+  "EventCalendar",
+  eventCalendarSchema
+);

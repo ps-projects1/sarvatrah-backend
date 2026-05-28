@@ -7,10 +7,13 @@ const { vehicleCollection } = require("../../models/vehicle");
 const User = require("../../models/user");
 const { calculatePackageCostInternal } = require("./calBooking");
 const generateBookingInvoice = require("../../helper/bookingInvoice");
-const {generateVoucherPDF, generateItineraryPDF} = require("../../helper/bookingPDFs");
+const { generateVoucherPDF, generateItineraryPDF } = require("../../helper/bookingPDFs");
 const { sendBookingInvoiceEmail } = require("../../helper/sendMail");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
 const Admin = require("../../models/admin");
+const {
+  GST_PERCENT,
+} = require("../../config/taxConfig");
 
 const Razorpay = require("razorpay");
 
@@ -45,7 +48,7 @@ const completePaymentOrder = async (req, res) => {
     ========================= */
 
     const subTotal = booking.totalPrice || 0;
-    const taxPercent = 18;
+    const taxPercent = GST_PERCENT;
     const taxAmount = Math.round((subTotal * taxPercent) / 100);
 
     const totalAmount = subTotal + taxAmount;
@@ -76,7 +79,10 @@ const completePaymentOrder = async (req, res) => {
     ========================= */
 
     booking.payment.orderId = order.id;
-    booking.payment.amount = remainingAmount; // 👈 important
+
+    booking.payment.pendingAmount = remainingAmount;
+    booking.payment.amount = remainingAmount;
+
     booking.payment.status = "created";
 
     await booking.save();
@@ -218,13 +224,23 @@ const createBooking = async (req, res) => {
         message: "Total travellers count mismatch."
       });
 
-      console.log("bookingType:", bookingType);
-console.log("packageId:", packageId);
+    console.log("bookingType:", bookingType);
+    console.log("packageId:", packageId);
 
     /* =====================================================
        OLD VERSION — CLIENT PROVIDED PRICE
     ===================================================== */
     if (totalPrice) {
+
+      const subtotal =
+        Number(totalPrice);
+
+      const taxAmount = Math.round(
+        (subtotal * GST_PERCENT) / 100
+      );
+
+      const grandTotal =
+        subtotal + taxAmount;
 
       const bookingData = {
         user: userId,
@@ -239,7 +255,12 @@ console.log("packageId:", packageId);
         travellers,
         billingInfo,
         payment: {
-          amount: Number(totalPrice),
+          subtotal,
+          taxAmount,
+          totalAmount: grandTotal,
+          paidAmount: 0,
+          pendingAmount: grandTotal,
+          amount: grandTotal,
           status: "created"
         }
       };
@@ -264,9 +285,9 @@ console.log("packageId:", packageId);
       const partialPaymentChosen = req.body.partialPayment === true;
 
       const activePackage = holidayPackage || pilgrimagePackage;
-if (activePackage?.partialPayment && partialPaymentChosen) {
-   const dueDays = activePackage.partialPaymentDueDays || 0;
-const percentage = activePackage.partialPaymentPercentage || 0;
+      if (activePackage?.partialPayment && partialPaymentChosen) {
+        const dueDays = activePackage.partialPaymentDueDays || 0;
+        const percentage = activePackage.partialPaymentPercentage || 0;
         const partialAmount = Math.round((booking.totalPrice * percentage) / 100);
 
         booking.partialPayment = true;
@@ -275,9 +296,16 @@ const percentage = activePackage.partialPaymentPercentage || 0;
         booking.partialAmount = partialAmount;
         booking.payment.status = "partial";
         booking.partialPaymentDueDate = new Date(
-  new Date(startDate).getTime() - dueDays * 24 * 60 * 60 * 1000
-);
-        booking.payment.amount = partialAmount;
+          new Date(startDate).getTime() - dueDays * 24 * 60 * 60 * 1000
+        );
+        booking.payment.paidAmount =
+          partialAmount;
+
+        booking.payment.pendingAmount =
+          grandTotal - partialAmount;
+
+        booking.payment.amount =
+          partialAmount;
 
         await booking.save();
       }
@@ -329,7 +357,7 @@ const percentage = activePackage.partialPaymentPercentage || 0;
             `booking-itinerary-${booking._id}.pdf`,
             "booking-invoices"
           );
-          
+
         } catch (uploadError) {
           console.error("Supabase upload failed:", uploadError.message);
           console.error("Full upload error:", uploadError);
@@ -343,8 +371,8 @@ const percentage = activePackage.partialPaymentPercentage || 0;
         // Send email
         sendBookingInvoiceEmail({
           email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
-          .filter(Boolean)
-          .join(","),
+            .filter(Boolean)
+            .join(","),
           booking: updatedBooking,
           invoiceUrl,
           voucherPdfUrl,
@@ -494,6 +522,15 @@ const percentage = activePackage.partialPaymentPercentage || 0;
        CREATE BOOKING
     ===================== */
 
+    const subtotal = finalPrice;
+
+    const taxAmount = Math.round(
+      (subtotal * GST_PERCENT) / 100
+    );
+
+    const grandTotal =
+      subtotal + taxAmount;
+
     const bookingData = {
       user: userId,
       bookingType,
@@ -507,7 +544,12 @@ const percentage = activePackage.partialPaymentPercentage || 0;
       travellers,
       billingInfo,
       payment: {
-        amount: finalPrice,
+        subtotal,
+        taxAmount,
+        totalAmount: grandTotal,
+        paidAmount: 0,
+        pendingAmount: grandTotal,
+        amount: grandTotal,
         status: "created"
       },
       costBreakup
@@ -587,8 +629,8 @@ const percentage = activePackage.partialPaymentPercentage || 0;
       // Send email
       sendBookingInvoiceEmail({
         email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
-        .filter(Boolean)
-        .join(","),
+          .filter(Boolean)
+          .join(","),
         booking: updatedBooking,
         invoiceUrl,
         voucherPdfUrl,
@@ -747,13 +789,22 @@ const createExperienceBooking = async (req, res) => {
        CREATE BOOKING
     =============================== */
 
+    const subtotal = finalPrice;
+
+    const taxAmount = Math.round(
+      (subtotal * GST_PERCENT) / 100
+    );
+
+    const grandTotal =
+      subtotal + taxAmount;
+
     const bookingData = {
       user: userId,
       bookingType: "experience",
       experienceId,
       travelDate,
-      startDate: travelDate,   
-  endDate: travelDate,
+      startDate: travelDate,
+      endDate: travelDate,
       startTimeId,
       totalTraveller,
       totalPrice: finalPrice,
@@ -763,7 +814,12 @@ const createExperienceBooking = async (req, res) => {
       pickupType,
       pricingId,
       payment: {
-        amount: finalPrice,
+        subtotal,
+        taxAmount,
+        totalAmount: grandTotal,
+        paidAmount: 0,
+        pendingAmount: grandTotal,
+        amount: grandTotal,
         status: "created"
       },
       costBreakup: {
@@ -840,8 +896,8 @@ const createExperienceBooking = async (req, res) => {
       // Send email
       sendBookingInvoiceEmail({
         email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
-        .filter(Boolean)
-        .join(","),
+          .filter(Boolean)
+          .join(","),
         booking: updatedBooking,
         invoiceUrl,
         voucherPdfUrl,
