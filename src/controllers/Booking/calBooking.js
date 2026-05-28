@@ -3,7 +3,15 @@ const { HolidayPackage } = require("../../models/holidaysPackage");
 const { Pilgrimage } = require("../../models/pilgrimage");
 const { vehicleCollection } = require("../../models/vehicle");
 
+// ======================== HELPERS ========================
+
+const normalize = (str = "") =>
+  str
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
 // ======================== INTERNAL FUNCTION ===========================
+
 async function calculatePackageCostInternal(body) {
 
   try {
@@ -20,14 +28,14 @@ async function calculatePackageCostInternal(body) {
       // HOTELS
       selectedHotels = [],
 
-      // DATE
+      // DATES
       startDate,
       endDate,
 
       // TRAVELLERS
       totalTraveller = 1,
 
-      // CHILD
+      // CHILD OPTIONS
       childWithBed = false,
       childWithoutBed = false,
 
@@ -52,7 +60,7 @@ async function calculatePackageCostInternal(body) {
     }
 
     // ========================
-    // GET PACKAGE
+    // FETCH PACKAGE
     // ========================
 
     let pkg = null;
@@ -90,8 +98,8 @@ async function calculatePackageCostInternal(body) {
       new Date(endDate);
 
     if (
-      isNaN(bookingStart) ||
-      isNaN(bookingEnd)
+      isNaN(bookingStart.getTime()) ||
+      isNaN(bookingEnd.getTime())
     ) {
 
       throw new Error(
@@ -116,7 +124,7 @@ async function calculatePackageCostInternal(body) {
     // ========================
 
     const basePackagePrice =
-      pkg.basePrice || 0;
+      Number(pkg.basePrice || 0);
 
     // ========================
     // HOTEL CALCULATION
@@ -124,12 +132,7 @@ async function calculatePackageCostInternal(body) {
 
     let hotelCost = 0;
 
-    const normalize = (
-      str = ""
-    ) =>
-      str
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "");
+    const hotelBreakdown = [];
 
     for (const selectedHotel of selectedHotels) {
 
@@ -146,6 +149,31 @@ async function calculatePackageCostInternal(body) {
         nights = 1,
 
       } = selectedHotel;
+
+      // ========================
+      // VALIDATIONS
+      // ========================
+
+      if (!hotelId) {
+
+        throw new Error(
+          `Hotel ID missing for day ${dayNo}`
+        );
+      }
+
+      if (!roomType) {
+
+        throw new Error(
+          `Room type missing for day ${dayNo}`
+        );
+      }
+
+      if (!occupancy) {
+
+        throw new Error(
+          `Occupancy missing for day ${dayNo}`
+        );
+      }
 
       // ========================
       // FETCH HOTEL
@@ -189,10 +217,11 @@ async function calculatePackageCostInternal(body) {
             hotel.blackout.end
           );
 
-        if (
+        const overlaps =
           bookingStart <= blackoutEnd &&
-          bookingEnd >= blackoutStart
-        ) {
+          bookingEnd >= blackoutStart;
+
+        if (overlaps) {
 
           throw new Error(
             `${hotel.hotelName} unavailable due to blackout`
@@ -219,12 +248,12 @@ async function calculatePackageCostInternal(body) {
       }
 
       // ========================
-      // ROOM AVAILABILITY
+      // ROOM DATE AVAILABILITY
       // ========================
 
       let roomAvailable = false;
 
-      for (const duration of room.duration) {
+      for (const duration of room.duration || []) {
 
         const roomStart =
           new Date(duration.startDate);
@@ -232,10 +261,11 @@ async function calculatePackageCostInternal(body) {
         const roomEnd =
           new Date(duration.endDate);
 
-        if (
+        const valid =
           bookingStart >= roomStart &&
-          bookingEnd <= roomEnd
-        ) {
+          bookingEnd <= roomEnd;
+
+        if (valid) {
 
           roomAvailable = true;
 
@@ -243,7 +273,10 @@ async function calculatePackageCostInternal(body) {
         }
       }
 
-      if (!roomAvailable) {
+      if (
+        room.duration?.length > 0 &&
+        !roomAvailable
+      ) {
 
         throw new Error(
           `${roomType} unavailable in ${hotel.hotelName} for selected dates`
@@ -251,42 +284,53 @@ async function calculatePackageCostInternal(body) {
       }
 
       // ========================
-      // INVENTORY CHECK
-      // ========================
-
-      if (
-        room.inventory <
-        Number(totalTraveller)
-      ) {
-
-        throw new Error(
-          `Insufficient inventory in ${hotel.hotelName}`
-        );
-      }
-
-      // ========================
-      // OCCUPANCY PRICE
+      // OCCUPANCY RATE
       // ========================
 
       const occupancyIndex =
         Number(occupancy) - 1;
 
       const occupancyRate =
-        room.occupancyRates[
+        room.occupancyRates?.[
           occupancyIndex
         ];
 
       if (
-        occupancyRate === undefined
+        occupancyRate === undefined ||
+        occupancyRate === null
       ) {
 
         throw new Error(
-          `Invalid occupancy selected in ${hotel.hotelName}`
+          `Occupancy ${occupancy} pricing missing in ${hotel.hotelName}`
         );
       }
 
       // ========================
-      // CHILD PRICING
+      // REQUIRED ROOM COUNT
+      // ========================
+
+      const requiredRooms =
+        Math.ceil(
+          Number(totalTraveller) /
+          Number(occupancy)
+        );
+
+      // ========================
+      // INVENTORY VALIDATION
+      // ========================
+
+      if (
+        Number(room.inventory || 0) <
+        requiredRooms
+      ) {
+
+        throw new Error(
+          `Insufficient room inventory in ${hotel.hotelName}`
+        );
+      }
+
+      // ========================
+      // CHILD COST
       // ========================
 
       let childTotal = 0;
@@ -294,15 +338,19 @@ async function calculatePackageCostInternal(body) {
       if (childWithBed) {
 
         childTotal +=
-          room.child
-            ?.childWithBedPrice || 0;
+          Number(
+            room.child
+              ?.childWithBedPrice || 0
+          );
       }
 
       if (childWithoutBed) {
 
         childTotal +=
-          room.child
-            ?.childWithoutBedPrice || 0;
+          Number(
+            room.child
+              ?.childWithoutBedPrice || 0
+          );
       }
 
       // ========================
@@ -310,13 +358,51 @@ async function calculatePackageCostInternal(body) {
       // ========================
 
       const perNightRoomPrice =
-        occupancyRate + childTotal;
+        Number(occupancyRate) +
+        Number(childTotal);
 
       const totalRoomPrice =
         perNightRoomPrice *
-        Number(nights);
+        Number(nights) *
+        requiredRooms;
 
       hotelCost += totalRoomPrice;
+
+      // ========================
+      // DEBUG BREAKDOWN
+      // ========================
+
+      hotelBreakdown.push({
+
+        dayNo,
+
+        hotelName:
+          hotel.hotelName,
+
+        roomType,
+
+        occupancy,
+
+        occupancyRate,
+
+        requiredRooms,
+
+        nights,
+
+        perNightRoomPrice,
+
+        totalRoomPrice,
+      });
+
+      console.log({
+        hotel: hotel.hotelName,
+        roomType,
+        occupancy,
+        occupancyRate,
+        requiredRooms,
+        nights,
+        totalRoomPrice,
+      });
     }
 
     // ========================
@@ -388,10 +474,11 @@ async function calculatePackageCostInternal(body) {
             vehicle.blackout.end
           );
 
-        if (
+        const overlaps =
           bookingStart <= blackoutEnd &&
-          bookingEnd >= blackoutStart
-        ) {
+          bookingEnd >= blackoutStart;
+
+        if (overlaps) {
 
           throw new Error(
             "Vehicle unavailable due to blackout"
@@ -404,9 +491,11 @@ async function calculatePackageCostInternal(body) {
       // ========================
 
       const baseVehiclePrice =
-        vehicleData.price ||
-        vehicle.rate ||
-        0;
+        Number(
+          vehicleData.price ||
+          vehicle.rate ||
+          0
+        );
 
       if (pkg.priceMarkup) {
 
@@ -452,6 +541,8 @@ async function calculatePackageCostInternal(body) {
 
         totalTraveller,
 
+        travellerBasePrice,
+
         basePackagePrice,
 
         hotelCost,
@@ -459,6 +550,8 @@ async function calculatePackageCostInternal(body) {
         vehicleFinal,
 
         markup,
+
+        hotelBreakdown,
 
         hotelPriceFound:
           hotelCost > 0,
@@ -469,6 +562,8 @@ async function calculatePackageCostInternal(body) {
     };
 
   } catch (err) {
+
+    console.log(err);
 
     return {
 
