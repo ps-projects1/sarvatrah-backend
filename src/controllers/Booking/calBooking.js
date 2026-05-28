@@ -5,194 +5,509 @@ const { vehicleCollection } = require("../../models/vehicle");
 
 // ======================== INTERNAL FUNCTION ===========================
 async function calculatePackageCostInternal(body) {
+
   try {
+
     const {
-      // HOLIDAY PACKAGE + VEHICLE
+
+      // PACKAGE
       holidayPackageId,
-      pilgrimagePackageId, // Support for pilgrimage packages
+      pilgrimagePackageId,
+
+      // VEHICLE
       vehicleId,
 
-      // HOTEL INPUTS
-      hotel_id,
-      roomType,
+      // HOTELS
+      selectedHotels = [],
+
+      // DATE
       startDate,
       endDate,
-      occupancy,
-      childWithBed,
-      childWithoutBed,
+
+      // TRAVELLERS
+      totalTraveller = 1,
+
+      // CHILD
+      childWithBed = false,
+      childWithoutBed = false,
 
       // MARKUP
-      priceMarkup = 0
+      priceMarkup = 0,
+
     } = body;
 
-    // Determine package ID (support both holiday and pilgrimage)
-    const packageId = holidayPackageId || pilgrimagePackageId;
-    let markup = priceMarkup;
-    let days = 0;
-    let hotelCost = 0;
-    let vehicleFinal = 0;
-    let basePackagePrice = 0;
+    // ========================
+    // PACKAGE VALIDATION
+    // ========================
 
-    // 1️⃣ CALCULATE DAYS
-    if (startDate && endDate) {
-      days =
-        (new Date(endDate) - new Date(startDate)) /
-        (1000 * 60 * 60 * 24);
+    const packageId =
+      holidayPackageId ||
+      pilgrimagePackageId;
 
-      if (days <= 0) {
-        throw new Error("Invalid date range. End date must be after start date.");
-      }
+    if (!packageId) {
+
+      throw new Error(
+        "Package ID is required"
+      );
     }
 
-    // 2️⃣ HOTEL COST
-    if (packageId && occupancy) {
+    // ========================
+    // GET PACKAGE
+    // ========================
 
-      let pkg = null;
+    let pkg = null;
 
-      if (holidayPackageId) {
-        pkg = await HolidayPackage.findById(holidayPackageId)
-          .populate("itinerary.hotel_id");
-      } else if (pilgrimagePackageId) {
-        pkg = await Pilgrimage.findById(pilgrimagePackageId)
-          .populate("itinerary.hotel_id");
-      }
+    if (holidayPackageId) {
 
-      if (!pkg) throw new Error("Package not found");
-
-      const normalize = (str) =>
-        str.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-      let totalHotelCost = 0;
-
-      for (const day of pkg.itinerary) {
-
-        // ✅ USE SELECTED HOTEL
-        const hotel = day.hotel_id;
-
-        if (!hotel) continue; // skip if no stay that day
-
-        const room = hotel.rooms.find(
-          r => normalize(r.roomType) === normalize(roomType)
+      pkg =
+        await HolidayPackage.findById(
+          holidayPackageId
         );
 
-        if (!room) {
-          throw new Error(`Room type ${roomType} not found in hotel ${hotel.hotelName}`);
-        }
+    } else {
 
-        const occupancyRate = room.occupancyRates[occupancy - 1];
-
-        if (!occupancyRate) {
-          throw new Error(`Invalid occupancy for hotel ${hotel.hotelName}`);
-        }
-
-        let childTotal = 0;
-
-        if (childWithBed) childTotal += room.child.childWithBedPrice;
-        if (childWithoutBed) childTotal += room.child.childWithoutBedPrice;
-
-        const perDayAmount = occupancyRate + childTotal;
-
-        // ✅ ADD PER DAY (NOT MULTIPLY)
-        totalHotelCost += perDayAmount;
-      }
-
-      hotelCost = totalHotelCost;
+      pkg =
+        await Pilgrimage.findById(
+          pilgrimagePackageId
+        );
     }
 
-    // 3️⃣ VEHICLE COST + BASE PACKAGE PRICE
-    if (packageId && vehicleId) {
-      // Try to find the package in either HolidayPackage or Pilgrimage collection
-      let pkg = null;
+    if (!pkg) {
 
-      if (holidayPackageId) {
-        pkg = await HolidayPackage.findById(holidayPackageId);
-        if (!pkg) throw new Error("Holiday package not found");
-      } else if (pilgrimagePackageId) {
-        pkg = await Pilgrimage.findById(pilgrimagePackageId);
-        if (!pkg) throw new Error("Pilgrimage package not found");
+      throw new Error(
+        "Package not found"
+      );
+    }
+
+    // ========================
+    // DATE VALIDATION
+    // ========================
+
+    const bookingStart =
+      new Date(startDate);
+
+    const bookingEnd =
+      new Date(endDate);
+
+    if (
+      isNaN(bookingStart) ||
+      isNaN(bookingEnd)
+    ) {
+
+      throw new Error(
+        "Invalid booking dates"
+      );
+    }
+
+    const days = Math.ceil(
+      (bookingEnd - bookingStart) /
+      (1000 * 60 * 60 * 24)
+    );
+
+    if (days <= 0) {
+
+      throw new Error(
+        "End date must be after start date"
+      );
+    }
+
+    // ========================
+    // BASE PACKAGE PRICE
+    // ========================
+
+    const basePackagePrice =
+      pkg.basePrice || 0;
+
+    // ========================
+    // HOTEL CALCULATION
+    // ========================
+
+    let hotelCost = 0;
+
+    const normalize = (
+      str = ""
+    ) =>
+      str
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+
+    for (const selectedHotel of selectedHotels) {
+
+      const {
+
+        dayNo,
+
+        hotelId,
+
+        roomType,
+
+        occupancy,
+
+        nights = 1,
+
+      } = selectedHotel;
+
+      // ========================
+      // FETCH HOTEL
+      // ========================
+
+      const hotel =
+        await hotelCollection.findById(
+          hotelId
+        );
+
+      if (!hotel) {
+
+        throw new Error(
+          `Hotel not found for day ${dayNo}`
+        );
       }
 
-      if (!pkg) throw new Error("Package not found");
+      if (!hotel.active) {
 
-      // Get base package price
-      basePackagePrice = pkg.basePrice || 0;
-
-      // const vehicleData = pkg.availableVehicle.find(
-      //   (v) => v.vehicle_id == vehicleId
-      // );
-
-      // if (!vehicleData) throw new Error("Vehicle not available in this package");
-
-
-
-  const vehicleData =
-  pkg.availableVehicle?.find(v => v.vehicle_id == vehicleId) ||
-  pkg.vehiclePrices?.find(v => v.vehicle_id == vehicleId);
-
-if (!vehicleData) throw new Error("Vehicle not available in this package");
-
-      const vehicle = await vehicleCollection.findById(vehicleId);
-
-      if (!vehicle || !vehicle.active) {
-        throw new Error("Selected vehicle is not active");
+        throw new Error(
+          `${hotel.hotelName} is inactive`
+        );
       }
 
-      const baseVehiclePrice = vehicleData.price || vehicle.rate || 0;
+      // ========================
+      // HOTEL BLACKOUT
+      // ========================
 
+      if (
+        hotel.blackout?.start &&
+        hotel.blackout?.end
+      ) {
+
+        const blackoutStart =
+          new Date(
+            hotel.blackout.start
+          );
+
+        const blackoutEnd =
+          new Date(
+            hotel.blackout.end
+          );
+
+        if (
+          bookingStart <= blackoutEnd &&
+          bookingEnd >= blackoutStart
+        ) {
+
+          throw new Error(
+            `${hotel.hotelName} unavailable due to blackout`
+          );
+        }
+      }
+
+      // ========================
+      // FIND ROOM
+      // ========================
+
+      const room =
+        hotel.rooms.find(
+          (r) =>
+            normalize(r.roomType) ===
+            normalize(roomType)
+        );
+
+      if (!room) {
+
+        throw new Error(
+          `${roomType} room not found in ${hotel.hotelName}`
+        );
+      }
+
+      // ========================
+      // ROOM AVAILABILITY
+      // ========================
+
+      let roomAvailable = false;
+
+      for (const duration of room.duration) {
+
+        const roomStart =
+          new Date(duration.startDate);
+
+        const roomEnd =
+          new Date(duration.endDate);
+
+        if (
+          bookingStart >= roomStart &&
+          bookingEnd <= roomEnd
+        ) {
+
+          roomAvailable = true;
+
+          break;
+        }
+      }
+
+      if (!roomAvailable) {
+
+        throw new Error(
+          `${roomType} unavailable in ${hotel.hotelName} for selected dates`
+        );
+      }
+
+      // ========================
+      // INVENTORY CHECK
+      // ========================
+
+      if (
+        room.inventory <
+        Number(totalTraveller)
+      ) {
+
+        throw new Error(
+          `Insufficient inventory in ${hotel.hotelName}`
+        );
+      }
+
+      // ========================
+      // OCCUPANCY PRICE
+      // ========================
+
+      const occupancyIndex =
+        Number(occupancy) - 1;
+
+      const occupancyRate =
+        room.occupancyRates[
+          occupancyIndex
+        ];
+
+      if (
+        occupancyRate === undefined
+      ) {
+
+        throw new Error(
+          `Invalid occupancy selected in ${hotel.hotelName}`
+        );
+      }
+
+      // ========================
+      // CHILD PRICING
+      // ========================
+
+      let childTotal = 0;
+
+      if (childWithBed) {
+
+        childTotal +=
+          room.child
+            ?.childWithBedPrice || 0;
+      }
+
+      if (childWithoutBed) {
+
+        childTotal +=
+          room.child
+            ?.childWithoutBedPrice || 0;
+      }
+
+      // ========================
+      // FINAL ROOM PRICE
+      // ========================
+
+      const perNightRoomPrice =
+        occupancyRate + childTotal;
+
+      const totalRoomPrice =
+        perNightRoomPrice *
+        Number(nights);
+
+      hotelCost += totalRoomPrice;
+    }
+
+    // ========================
+    // VEHICLE CALCULATION
+    // ========================
+
+    let vehicleFinal = 0;
+
+    let markup =
+      Number(priceMarkup) || 0;
+
+    if (vehicleId) {
+
+      const vehicleData =
+        pkg.availableVehicle?.find(
+          (v) =>
+            String(v.vehicle_id) ===
+            String(vehicleId)
+        ) ||
+
+        pkg.vehiclePrices?.find(
+          (v) =>
+            String(v.vehicle_id) ===
+            String(vehicleId)
+        );
+
+      if (!vehicleData) {
+
+        throw new Error(
+          "Vehicle not available in this package"
+        );
+      }
+
+      const vehicle =
+        await vehicleCollection.findById(
+          vehicleId
+        );
+
+      if (!vehicle) {
+
+        throw new Error(
+          "Vehicle not found"
+        );
+      }
+
+      if (!vehicle.active) {
+
+        throw new Error(
+          "Selected vehicle inactive"
+        );
+      }
+
+      // ========================
+      // VEHICLE BLACKOUT
+      // ========================
+
+      if (
+        vehicle.blackout?.start &&
+        vehicle.blackout?.end
+      ) {
+
+        const blackoutStart =
+          new Date(
+            vehicle.blackout.start
+          );
+
+        const blackoutEnd =
+          new Date(
+            vehicle.blackout.end
+          );
+
+        if (
+          bookingStart <= blackoutEnd &&
+          bookingEnd >= blackoutStart
+        ) {
+
+          throw new Error(
+            "Vehicle unavailable due to blackout"
+          );
+        }
+      }
+
+      // ========================
+      // VEHICLE PRICE
+      // ========================
+
+      const baseVehiclePrice =
+        vehicleData.price ||
+        vehicle.rate ||
+        0;
 
       if (pkg.priceMarkup) {
-        markup = pkg.priceMarkup;
+
+        markup =
+          Number(pkg.priceMarkup);
       }
 
-      const markupAmount = (baseVehiclePrice * markup) / 100;
-      vehicleFinal = baseVehiclePrice + markupAmount;
+      const markupAmount =
+        (baseVehiclePrice * markup) /
+        100;
+
+      vehicleFinal =
+        baseVehiclePrice +
+        markupAmount;
     }
 
-    // 4️⃣ FINAL PACKAGE PRICE = Base Package Price + Hotel Cost + Vehicle Cost
-    const adults = body.occupancy || body.adults || 1;
-const finalPackage = (basePackagePrice + hotelCost + vehicleFinal) * adults;
+    // ========================
+    // FINAL CALCULATION
+    // ========================
 
-    // Calculate per day amount for display purposes
-    let perDayAmount = undefined;
-    if (hotel_id && days > 0) {
-      perDayAmount = hotelCost / days;
-    }
+    const travellerBasePrice =
+      basePackagePrice *
+      Number(totalTraveller);
 
-    console.log({ finalPackage, basePackagePrice, days, hotelCost, vehicleFinal, markup, perDayAmount });
+    const finalPackage =
+      travellerBasePrice +
+      hotelCost +
+      vehicleFinal;
+
+    // ========================
+    // RESPONSE
+    // ========================
+
     return {
+
       success: true,
+
       finalPackage,
+
       breakdown: {
+
         days,
+
+        totalTraveller,
+
         basePackagePrice,
+
         hotelCost,
+
         vehicleFinal,
-        perDayAmount,
+
         markup,
-        hotelPriceFound: hotelCost > 0,
-        vehiclePriceFound: vehicleFinal > 0
-      }
+
+        hotelPriceFound:
+          hotelCost > 0,
+
+        vehiclePriceFound:
+          vehicleFinal > 0,
+      },
     };
 
   } catch (err) {
-    return { success: false, message: err.message };
+
+    return {
+
+      success: false,
+
+      message: err.message,
+    };
   }
 }
 
 // ======================== API CONTROLLER ===========================
-exports.calculatePackageCost = async (req, res) => {
-  const result = await calculatePackageCostInternal(req.body);
 
-  if (!result.success) {
-    return res.status(400).json(result);
-  }
+exports.calculatePackageCost =
+  async (req, res) => {
 
-  return res.json({
-    success: true,
-    message: "Package cost calculated successfully",
-    ...result
-  });
-};
+    const result =
+      await calculatePackageCostInternal(
+        req.body
+      );
 
-// Export internal function for use inside createBooking
-exports.calculatePackageCostInternal = calculatePackageCostInternal;
+    if (!result.success) {
+
+      return res.status(400).json(
+        result
+      );
+    }
+
+    return res.json({
+
+      success: true,
+
+      message:
+        "Package cost calculated successfully",
+
+      ...result,
+    });
+  };
+
+// ======================== EXPORT ===========================
+
+exports.calculatePackageCostInternal =
+  calculatePackageCostInternal;
