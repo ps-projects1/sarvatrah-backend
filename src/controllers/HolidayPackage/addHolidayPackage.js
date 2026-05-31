@@ -6,6 +6,11 @@ const uploadToSupabase = require("../../utils/uploadToSupabase");
 const { HolidayPackage } = require("../../models/holidaysPackage");
 const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
+const {
+  calculateRecommendedPackagePrice,
+} = require(
+  "../../utils/packagePricingCalculator"
+);
 const Joi = require("joi");
 
 const addHolidayPackage = async (req, res) => {
@@ -330,7 +335,11 @@ const addHolidayPackage = async (req, res) => {
       }
     }
 
-
+    const pricingSnapshot = await calculateRecommendedPackagePrice(
+        itinerary,
+        vehicles,
+        inflatedPercentage
+      );
 
     // Create a new holiday package
     const newHolidayPackage = new HolidayPackage({
@@ -359,7 +368,9 @@ const addHolidayPackage = async (req, res) => {
       include,
       exclude,
       itinerary,
-      basePrice: basePrice || 0,
+      // basePrice: basePrice || 0,
+      basePrice: pricingSnapshot.finalCost,
+      recommendedPricing: pricingSnapshot,
       priceMarkup: priceMarkup || 0,
       inflatedPercentage: inflatedPercentage || 0,
       active: active || false,

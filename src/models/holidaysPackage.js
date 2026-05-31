@@ -41,29 +41,39 @@ const dayItinerarySchema = new dbs.Schema(
     subtitle: String,
     description: { type: String, required: false },  // ✅ Changed to optional
     stay: { type: Boolean, default: false },
-    hotel_id : {
+    hotel_id: {
       type: dbs.Schema.Types.ObjectId,
       ref: "Hotel",
     },
     state: {
-  type: {
-    _id: String,
-    name: String,
-    isoCode: String,
-    country: String
-  },
-  required: false
-},
+      type: {
+        _id: String,
+        name: String,
+        isoCode: String,
+        country: String
+      },
+      required: false
+    },
 
-city: {
-  type: {
-    _id: String,
-    name: String,
-    state: String,
-    country: String
-  },
-  required: false
-},
+    city: {
+      type: {
+        _id: String,
+        name: String,
+        state: String,
+        country: String
+      },
+      required: false
+    },
+
+    recommendedRoomType: {
+      type: String,
+      default: "Standard",
+    },
+
+    recommendedOccupancy: {
+      type: Number,
+      default: 2,
+    },
 
     mealsIncluded: [
       {
@@ -154,16 +164,16 @@ const holidayPackageSchema = new dbs.Schema(
       },
     ],
     availableVehicle: [
-  {
-    vehicleType: { type: String, required: true },
-    price: { type: Number, required: true },
-    rate: { type: Number, default: 0 },
-    seatLimit: { type: Number, default: 0 },
-    vehicle_id: { type: String },
-    brandName: String,
-    modelName: String
-  }
-],
+      {
+        vehicleType: { type: String, required: true },
+        price: { type: Number, required: true },
+        rate: { type: Number, default: 0 },
+        seatLimit: { type: Number, default: 0 },
+        vehicle_id: { type: String },
+        brandName: String,
+        modelName: String
+      }
+    ],
 
     highlights: { type: String, required: true },
     createPilgrimage: { type: Boolean, default: false },
@@ -179,8 +189,8 @@ const holidayPackageSchema = new dbs.Schema(
       default: 0,
     },
     partialPaymentDueDate: { type: Date },
-partialReminderSent: { type: Boolean, default: false },
-finalReminderSent: { type: Boolean, default: false },
+    partialReminderSent: { type: Boolean, default: false },
+    finalReminderSent: { type: Boolean, default: false },
     cancellationPolicyType: {
       type: String,
       enum: ["refundble", "non-refundble"],
@@ -199,6 +209,57 @@ finalReminderSent: { type: Boolean, default: false },
     images: [imageSchema],
     itinerary: [dayItinerarySchema],
     vehiclePrices: [vehiclePriceSchema],
+    recommendedPricing: {
+      hotelCost: {
+        type: Number,
+        default: 0,
+      },
+
+      vehicleCost: {
+        type: Number,
+        default: 0,
+      },
+
+      subtotal: {
+        type: Number,
+        default: 0,
+      },
+
+      inflatedPercentage: {
+        type: Number,
+        default: 0,
+      },
+
+      inflatedAmount: {
+        type: Number,
+        default: 0,
+      },
+
+      finalCost: {
+        type: Number,
+        default: 0,
+      },
+
+      selectedHotels: [
+        {
+          dayNo: Number,
+          hotelId: {
+            type: dbs.Schema.Types.ObjectId,
+            ref: "Hotel",
+          },
+          hotelName: String,
+          roomType: String,
+          occupancy: Number,
+          pricePerNight: Number,
+        }
+      ],
+
+      selectedVehicle: {
+        vehicle_id: String,
+        vehicleType: String,
+        price: Number,
+      }
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt automatically
