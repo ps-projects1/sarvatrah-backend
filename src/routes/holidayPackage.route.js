@@ -21,6 +21,8 @@ route.post(
   upload.fields([
     { name: "themeImg", maxCount: 1 },
     { name: "packageImages", maxCount: 10 },
+    { name: "vehicleImages", maxCount: 20 },
+    { name: "files", maxCount: 20 },
   ]),
   limitIfFiles(uploadLimiter), // only limit if files exist
   addHolidayPackage
@@ -32,6 +34,8 @@ route.put(
   upload.fields([
     { name: "themeImg", maxCount: 1 },
     { name: "packageImages", maxCount: 10 },
+    { name: "vehicleImages", maxCount: 20 },
+    { name: "files", maxCount: 20 },
   ]),
   limitIfFiles(uploadLimiter),
   updateHolidayPackage
