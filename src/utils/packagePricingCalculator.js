@@ -24,11 +24,11 @@ async function calculateRecommendedPackagePrice(
     if (!hotel) continue;
 
     const room =
-      hotel.rooms.find(
-        r =>
-          r.roomType ===
-          item.recommendedRoomType
-      );
+  hotel.rooms.find(
+    r =>
+      r.roomType?.toLowerCase().trim() ===
+      item.recommendedRoomType?.toLowerCase().trim()
+  );
 
     if (!room) continue;
 
