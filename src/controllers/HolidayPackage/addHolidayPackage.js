@@ -240,15 +240,50 @@ const addHolidayPackage = async (req, res) => {
 
           // Validate location match
           if (hotel.state !== item.state || hotel.city !== item.city) {
-            return res.status(400).json(
-              generateErrorResponse(
-                `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${item.state}, ${item.city}). Please select a hotel from the correct location.`
+
+            const hotelState =
+              String(hotel.state || "")
+                .trim()
+                .toLowerCase();
+
+            const hotelCity =
+              String(hotel.city || "")
+                .trim()
+                .toLowerCase();
+
+            const itineraryState =
+              String(
+                typeof item.state === "object"
+                  ? item.state?.name
+                  : item.state
               )
-            );
+                .trim()
+                .toLowerCase();
+
+            const itineraryCity =
+              String(
+                typeof item.city === "object"
+                  ? item.city?.name
+                  : item.city
+              )
+                .trim()
+                .toLowerCase();
+
+            if (
+              hotelState !== itineraryState ||
+              hotelCity !== itineraryCity
+            ) {
+              return res.status(400).json(
+                generateErrorResponse(
+                  `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${itineraryState}, ${itineraryCity}). Please select a hotel from the correct location.`
+                )
+              );
+            }
           }
 
           // Keep admin's selection - don't override
           selectedHotel = item.hotel_id;
+          console.log("selectedHotel above: ", selectedHotel);
           console.log(
             `✅ Day ${item.dayNo}: Using admin-selected hotel: ${hotel.hotelName} (${hotel._id})`
           );
@@ -269,6 +304,7 @@ const addHolidayPackage = async (req, res) => {
           }
 
           selectedHotel = existingDefaultHotel._id;
+          console.log("selectedHotel below: ", selectedHotel);
           item.hotel_id = selectedHotel;
           console.log(
             `ℹ️  Day ${item.dayNo}: No hotel selected, using default: ${existingDefaultHotel.hotelName} (${existingDefaultHotel._id})`
@@ -336,10 +372,10 @@ const addHolidayPackage = async (req, res) => {
     }
 
     const pricingSnapshot = await calculateRecommendedPackagePrice(
-        itinerary,
-        vehicles,
-        inflatedPercentage
-      );
+      itinerary,
+      vehicles,
+      inflatedPercentage
+    );
 
     // Create a new holiday package
     const newHolidayPackage = new HolidayPackage({

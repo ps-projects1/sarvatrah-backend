@@ -8,6 +8,10 @@ const { vehicleCollection } = require("../../models/vehicle");
 const Joi = require("joi");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
 
+const {
+  calculateRecommendedPackagePrice,
+} = require("../../utils/packagePricingCalculator");
+
 const updateHolidayPackage = async (req, res) => {
   try {
     const {
@@ -133,7 +137,7 @@ const updateHolidayPackage = async (req, res) => {
           if (item.state && item.city) {
             const itemState = typeof item.state === 'object' ? item.state.name : item.state;
             const itemCity = typeof item.city === 'object' ? item.city.name : item.city;
-            
+
             if (hotel.state !== itemState || hotel.city !== itemCity) {
               return res.status(400).json(
                 generateErrorResponse(
@@ -158,7 +162,7 @@ const updateHolidayPackage = async (req, res) => {
     // Update theme image if provided
     if (req.files && req.files.length > 0) {
       const themeFile = req.files[0];
-      
+
       // Upload to Supabase or use local path
       let themeImgPath;
       try {
@@ -184,7 +188,7 @@ const updateHolidayPackage = async (req, res) => {
         for (let i = 1; i < req.files.length; i++) {
           const file = req.files[i];
           let filePath;
-          
+
           try {
             filePath = await uploadToSupabase(
               file.path,
@@ -202,7 +206,7 @@ const updateHolidayPackage = async (req, res) => {
             mimetype: file.mimetype,
           });
         }
-        
+
         // Append new images to existing ones
         existingPackage.images = [...existingPackage.images, ...additionalImages];
       }
@@ -235,23 +239,43 @@ const updateHolidayPackage = async (req, res) => {
     if (refundableTerms !== undefined) existingPackage.refundableTerms = refundableTerms;
     if (include !== undefined) existingPackage.include = include;
     if (exclude !== undefined) existingPackage.exclude = exclude;
-    if (basePrice !== undefined) existingPackage.basePrice = parseFloat(basePrice);
+    // if (basePrice !== undefined) existingPackage.basePrice = parseFloat(basePrice);
     if (priceMarkup !== undefined) existingPackage.priceMarkup = parseFloat(priceMarkup);
     if (inflatedPercentage !== undefined) existingPackage.inflatedPercentage = parseFloat(inflatedPercentage);
     if (active !== undefined) existingPackage.active = active === "true" || active === true;
     if (startCity !== undefined) existingPackage.startCity = startCity;
-    if (parsedItinerary !== undefined) existingPackage.itinerary = parsedItinerary;
-    if (parsedVehicles !== undefined) existingPackage.vehiclePrices = parsedVehicles;
-    
 
-    console.log("TYPE:", typeof partialPaymentDueDays, "VALUE:", partialPaymentDueDays);
-console.log("PARSED:", parseInt(partialPaymentDueDays));
-existingPackage.partialPaymentDueDays = parseInt(partialPaymentDueDays);
-console.log("ON DOC:", existingPackage.partialPaymentDueDays);
-    console.log("About to save partialPaymentDueDays:", existingPackage.partialPaymentDueDays);
-const updatedPackage = await existingPackage.save();
-console.log("AFTER SAVE:", updatedPackage.partialPaymentDueDays);
-console.log("Saved partialPaymentDueDays:", updatedPackage.partialPaymentDueDays);
+    if (parsedItinerary !== undefined) {
+      existingPackage.itinerary = parsedItinerary;
+    }
+
+    if (parsedVehicles !== undefined) {
+      existingPackage.vehiclePrices = parsedVehicles;
+    }
+
+    // ===================================
+    // RECALCULATE PACKAGE COST
+    // ===================================
+
+    const pricing =
+      await calculateRecommendedPackagePrice(
+        existingPackage.itinerary,
+        existingPackage.vehiclePrices,
+        existingPackage.inflatedPercentage
+      );
+
+    existingPackage.recommendedPricing =
+      pricing;
+
+    existingPackage.basePrice =
+      pricing.finalCost;
+
+    // ===================================
+    // SAVE
+    // ===================================
+
+    const updatedPackage =
+      await existingPackage.save();
 
     return res
       .status(200)

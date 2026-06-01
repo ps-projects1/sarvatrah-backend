@@ -1,14 +1,24 @@
 const { hotelCollection } = require("../models/hotel");
 
+const normalize = (str = "") =>
+  str
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
 async function calculateRecommendedPackagePrice(
-  itinerary,
-  vehicles,
-  inflatedPercentage
+  itinerary = [],
+  vehicles = [],
+  inflatedPercentage = 0
 ) {
 
   let hotelCost = 0;
 
   const selectedHotels = [];
+
+  // console.log(
+  //   "Calculating package price with itinerary:",
+  //   JSON.stringify(itinerary)
+  // );
 
   for (const item of itinerary) {
 
@@ -21,67 +31,186 @@ async function calculateRecommendedPackagePrice(
         item.hotel_id
       );
 
-    if (!hotel) continue;
+    if (!hotel) {
+      console.log(
+        `Hotel not found: ${item.hotel_id}`
+      );
+      continue;
+    }
 
-    const room =
-  hotel.rooms.find(
-    r =>
-      r.roomType?.toLowerCase().trim() ===
-      item.recommendedRoomType?.toLowerCase().trim()
-  );
+    if (!hotel.active) {
+      console.log(
+        `Hotel inactive: ${hotel.hotelName}`
+      );
+      continue;
+    }
 
-    if (!room) continue;
+    // --------------------------------------------------
+    // RECOMMENDED ROOM TYPE
+    // --------------------------------------------------
 
-    const occupancyIndex =
+    let room = null;
+
+    if (item.recommendedRoomType) {
+
+      room = hotel.rooms.find(
+        r =>
+          normalize(r.roomType) ===
+          normalize(
+            item.recommendedRoomType
+          )
+      );
+    }
+
+    // --------------------------------------------------
+    // FALLBACK -> CHEAPEST ROOM
+    // --------------------------------------------------
+
+    if (!room) {
+
+      room =
+        hotel.rooms
+          ?.filter(
+            r =>
+              Array.isArray(
+                r.occupancyRates
+              ) &&
+              r.occupancyRates.length
+          )
+          .sort((a, b) => {
+
+            const aMin =
+              Math.min(
+                ...a.occupancyRates
+              );
+
+            const bMin =
+              Math.min(
+                ...b.occupancyRates
+              );
+
+            return aMin - bMin;
+
+          })?.[0];
+    }
+
+    if (!room) {
+
+      console.log(
+        `No valid room pricing found for hotel ${hotel.hotelName}`
+      );
+
+      continue;
+    }
+
+    // --------------------------------------------------
+    // OCCUPANCY
+    // --------------------------------------------------
+
+    const occupancy =
       Number(
         item.recommendedOccupancy
-      ) - 1;
+      ) || 1;
 
-    const roomPrice =
-      room.occupancyRates[
+    const occupancyIndex =
+      occupancy - 1;
+
+    let occupancyRate =
+      room.occupancyRates?.[
         occupancyIndex
-      ] || 0;
+      ];
 
-    hotelCost += roomPrice;
+    // --------------------------------------------------
+    // FALLBACK TO CHEAPEST OCCUPANCY
+    // --------------------------------------------------
+
+    if (
+      occupancyRate === undefined ||
+      occupancyRate === null
+    ) {
+
+      occupancyRate =
+        Math.min(
+          ...room.occupancyRates
+        );
+    }
+
+    occupancyRate =
+      Number(
+        occupancyRate || 0
+      );
+
+    hotelCost += occupancyRate;
 
     selectedHotels.push({
-      dayNo: item.dayNo,
-      hotelId: hotel._id,
-      hotelName: hotel.hotelName,
+
+      dayNo:
+        item.dayNo,
+
+      hotelId:
+        hotel._id,
+
+      hotelName:
+        hotel.hotelName,
+
       roomType:
-        item.recommendedRoomType,
-      occupancy:
-        item.recommendedOccupancy,
-      pricePerNight: roomPrice,
+        room.roomType,
+
+      occupancy,
+
+      pricePerNight:
+        occupancyRate,
+    });
+
+    console.log({
+      hotel: hotel.hotelName,
+      roomType: room.roomType,
+      occupancy,
+      occupancyRate,
     });
   }
+
+  // ==================================================
+  // VEHICLE COST
+  // ==================================================
 
   let vehicleCost = 0;
 
   let selectedVehicle = null;
 
   if (
-    vehicles &&
+    Array.isArray(vehicles) &&
     vehicles.length
   ) {
 
+    const vehicle =
+      vehicles[0];
+
     vehicleCost =
       Number(
-        vehicles[0].price || 0
+        vehicle.price || 0
       );
 
     selectedVehicle = {
+
       vehicle_id:
-        vehicles[0].vehicle_id,
+        vehicle.vehicle_id,
+
       vehicleType:
-        vehicles[0].vehicleType,
+        vehicle.vehicleType,
+
       price:
-        vehicles[0].price,
+        vehicleCost,
     };
   }
 
+  // ==================================================
+  // FINAL COST
+  // ==================================================
+
   const subtotal =
-    hotelCost + vehicleCost;
+    hotelCost +
+    vehicleCost;
 
   const inflatedAmount =
     (
@@ -92,16 +221,36 @@ async function calculateRecommendedPackagePrice(
     ) / 100;
 
   const finalCost =
-    subtotal + inflatedAmount;
+    subtotal +
+    inflatedAmount;
 
-  return {
+  console.log({
     hotelCost,
     vehicleCost,
     subtotal,
-    inflatedPercentage,
     inflatedAmount,
     finalCost,
+  });
+
+  return {
+
+    hotelCost,
+
+    vehicleCost,
+
+    subtotal,
+
+    inflatedPercentage:
+      Number(
+        inflatedPercentage || 0
+      ),
+
+    inflatedAmount,
+
+    finalCost,
+
     selectedHotels,
+
     selectedVehicle,
   };
 }
