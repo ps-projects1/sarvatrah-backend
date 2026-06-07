@@ -39,6 +39,7 @@ const otpless = require("./src/routes/otpless");
 const profileRoutes = require("./src/routes/profile");
 const pilgrimageRoutes = require("./src/routes/pilgrimagePackage");
 const testimonials = require("./src/routes/testimonial")
+const debugRouter = require("./src/routes/debug");
 dotenv.config();
 const app = express();
 const secretKey = process.env.SECRET_KEY;
@@ -116,6 +117,10 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/pilgrimagePackage", pilgrimageRoutes)
 app.use("/api/footer", footerRoutes);
 app.use("/api/testimonials",testimonials)
+app.use(
+  "/api",
+  debugRouter
+);
 
 require("./src/helper/cron");
 

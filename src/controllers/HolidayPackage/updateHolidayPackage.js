@@ -9,6 +9,10 @@ const Joi = require("joi");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
 
 const {
+  writeLog,
+} = require("../../utils/debugLogger");
+
+const {
   calculateRecommendedPackagePrice,
 } = require("../../utils/packagePricingCalculator");
 
@@ -91,6 +95,16 @@ const updateHolidayPackage = async (req, res) => {
           )
         );
     }
+
+    console.log(
+  "parsedVehicles AFTER PARSE:",
+  JSON.stringify(parsedVehicles, null, 2)
+);
+
+writeLog({
+  type: "parsedVehicles AFTER PARSE",
+  body: JSON.stringify(parsedVehicles, null, 2),
+});
 
     // Validate vehicles if provided
     if (parsedVehicles && Array.isArray(parsedVehicles)) {
@@ -276,6 +290,11 @@ const updateHolidayPackage = async (req, res) => {
       JSON.stringify(parsedVehicles, null, 2)
     );
 
+    writeLog({
+  type: "parsedVehicles",
+  body: JSON.stringify(parsedVehicles, null, 2),
+});
+
     console.log(
       "vehiclePrices before calc:",
       JSON.stringify(
@@ -285,6 +304,15 @@ const updateHolidayPackage = async (req, res) => {
       )
     );
 
+    writeLog({
+  type: "vehiclePrices before calc",
+  body: JSON.stringify(
+        existingPackage.vehiclePrices,
+        null,
+        2
+      )
+});
+
     console.log(
       "itinerary before calc:",
       JSON.stringify(
@@ -293,6 +321,15 @@ const updateHolidayPackage = async (req, res) => {
         2
       )
     );
+
+    writeLog({
+  type: "itinerary before calc",
+  body: JSON.stringify(
+        existingPackage.itinerary,
+        null,
+        2
+      )
+});
 
     console.log(
   "recommendedPricing calc input:",
@@ -305,6 +342,18 @@ const updateHolidayPackage = async (req, res) => {
       existingPackage.inflatedPercentage,
   }
 );
+
+writeLog({
+  type: "recommendedPricing calc input:",
+  body: {
+    hotels:
+      existingPackage.itinerary,
+    vehicles:
+      existingPackage.vehiclePrices,
+    inflation:
+      existingPackage.inflatedPercentage,
+  }
+});
 
     const pricing =
       await calculateRecommendedPackagePrice(
