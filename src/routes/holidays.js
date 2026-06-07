@@ -5,6 +5,10 @@ const upload = require("../utils/file_upload/upload");
 const { generalLimiter, uploadLimiter, limitIfFiles } = require("../middlewares/rateLimit");
 const router = express.Router();
 const {
+  updateHolidayPackage,
+} = require("../controllers/HolidayPackage/updateHolidayPackage");
+
+const {
   generateHolidayPackagePdf,
 } = require("../controllers/HolidayPackage/holidayPackage.controller"); 
 router.post("/upload", upload.single("file"), async (req, res) => {
@@ -1065,163 +1069,7 @@ route.put(
     { name: "themeImage", maxCount: 1 },
     { name: "files", maxCount: 10 },
   ]),
-  async (req, res) => {
-    try {
-      console.log("UPDATE BODY:", req.body);
-      console.log("UPDATE FILES:", req.files);
-
-      const {
-        _id,
-        packageName,
-        selectType,
-        uniqueId,
-        packageType,
-        partialPaymentDueDays,
-        destinationCity,
-        highlights,
-        partialPayment,
-        recommendedPackage,
-        cancellationPolicyType,
-        roomLimit,
-        createPilgrimage,
-        displayHomepage,
-        status,
-        include,
-        exclude,
-        basePrice,
-        priceMarkup,
-        partialPaymentPercentage,
-        startCity,
-        days,
-        nights,
-        refundablePercentage,
-        refundableDays,
-        inflatedPercentage,
-        active,
-      } = req.body;
-
-      if (!_id) {
-        return res.status(400).json({
-          success: false,
-          message: "_id is required for update",
-        });
-      }
-
-      const packageObj = await HolidayPackage.findById(_id);
-      if (!packageObj) {
-        return res.status(404).json({
-          success: false,
-          message: "Package not found",
-        });
-      }
-
-      // ===== HANDLE FILES WITH SUPABASE =====
-      const themeFile = req.files?.themeImage?.[0];
-      const additionalFiles = req.files?.files || [];
-
-      if (themeFile) {
-        const themeImgUrl = await uploadToSupabase(
-          themeFile.path,
-          themeFile.originalname,
-          "holiday/theme"
-        );
-
-        packageObj.themeImg = {
-          filename: themeFile.filename,
-          path: themeImgUrl,
-          mimetype: themeFile.mimetype,
-        };
-      }
-
-      const images = [];
-      for (const file of additionalFiles) {
-        const fileUrl = await uploadToSupabase(
-          file.path,
-          file.originalname,
-          "holiday/gallery"
-        );
-        images.push({
-          filename: file.filename,
-          path: fileUrl,
-          mimetype: file.mimetype,
-        });
-      }
-
-      if (images.length > 0) {
-        packageObj.images = [...packageObj.images, ...images];
-      }
-
-      // ===== PARSE JSON FIELDS =====
-      let itinerary = [];
-      let destinationCities = [];
-      let availableVehicles = [];
-
-      try {
-        itinerary = JSON.parse(req.body.itinerary || "[]");
-        destinationCities = JSON.parse(destinationCity || "[]");
-        availableVehicles = JSON.parse(req.body.availableVehicle || "[]");
-      } catch (err) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid JSON format in fields",
-        });
-      }
-
-      // ===== UPDATE PACKAGE FIELDS =====
-      packageObj.packageName = packageName || packageObj.packageName;
-      packageObj.selectType = selectType || packageObj.selectType;
-      packageObj.uniqueId = uniqueId || packageObj.uniqueId;
-      packageObj.packageType = packageType || packageObj.packageType;
-      packageObj.destinationCity =
-        destinationCities.length > 0 ? destinationCities : packageObj.destinationCity;
-      packageObj.highlights = highlights || packageObj.highlights;
-      packageObj.status = status === "true";
-      packageObj.createPilgrimage = createPilgrimage === "true";
-      packageObj.displayHomepage = displayHomepage === "true";
-      packageObj.recommendedPackage = recommendedPackage === "true";
-      packageObj.partialPayment = partialPayment === "true";
-      packageObj.partialPaymentDueDays = parseInt(partialPaymentDueDays) || 0;
-      packageObj.partialPaymentPercentage = parseFloat(partialPaymentPercentage) || 0;
-      packageObj.cancellationPolicyType =
-        cancellationPolicyType || packageObj.cancellationPolicyType;
-      packageObj.roomLimit = parseInt(roomLimit) || packageObj.roomLimit;
-      packageObj.include = include || packageObj.include;
-      packageObj.exclude = exclude || packageObj.exclude;
-      packageObj.basePrice = parseFloat(basePrice) || packageObj.basePrice || 0;
-      packageObj.priceMarkup = parseFloat(priceMarkup) || packageObj.priceMarkup;
-      packageObj.inflatedPercentage = parseFloat(inflatedPercentage) || packageObj.inflatedPercentage;
-      packageObj.refundablePercentage = parseFloat(refundablePercentage) || packageObj.refundablePercentage;
-      packageObj.refundableDays = parseInt(refundableDays) || packageObj.refundableDays;
-      packageObj.startCity = startCity || packageObj.startCity;
-      packageObj.availableVehicle = availableVehicles;
-      packageObj.active = active !== "false";
-
-      // Update duration
-      packageObj.packageDuration = {
-        days: parseInt(days) || packageObj.packageDuration.days,
-        nights: parseInt(nights) || packageObj.packageDuration.nights,
-      };
-
-      // Update itinerary
-      if (Array.isArray(itinerary) && itinerary.length > 0) {
-        packageObj.itinerary = itinerary;
-      }
-
-      const updated = await packageObj.save();
-
-      return res.status(200).json({
-        success: true,
-        message: "Package updated successfully",
-        data: updated,
-      });
-    } catch (err) {
-      console.error("UPDATE ERROR:", err);
-      return res.status(500).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  }
+  updateHolidayPackage
 );
 
  
