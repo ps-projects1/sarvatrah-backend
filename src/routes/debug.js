@@ -4,39 +4,36 @@ const path = require("path");
 
 const router = express.Router();
 
-router.get(
-  "/debug-log",
-  async (req, res) => {
+router.get("/debug-log", async (req, res) => {
+  try {
+    const logPath = path.join(
+      process.cwd(),
+      "debug.log"
+    );
 
-    try {
-
-      const logPath =
-        path.join(
-          process.cwd(),
-          "debug.log"
-        );
-
-      const data =
-        fs.readFileSync(
-          logPath,
-          "utf8"
-        );
-
-      res.setHeader(
-        "Content-Type",
-        "text/plain"
+    if (!fs.existsSync(logPath)) {
+      return res.send(
+        "debug.log does not exist yet"
       );
-
-      return res.send(data);
-
-    } catch (err) {
-
-      return res.status(500).send(
-        err.message
-      );
-
     }
+
+    const data = fs.readFileSync(
+      logPath,
+      "utf8"
+    );
+
+    res.setHeader(
+      "Content-Type",
+      "text/plain"
+    );
+
+    return res.send(data);
+
+  } catch (err) {
+    return res
+      .status(500)
+      .send(err.message);
   }
-);
+});
 
 module.exports = router;

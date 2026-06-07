@@ -3,6 +3,10 @@ const { HolidayPackage } = require("../../models/holidaysPackage");
 const { Pilgrimage } = require("../../models/pilgrimage");
 const { vehicleCollection } = require("../../models/vehicle");
 
+const {
+  writeLog,
+} = require("../../utils/debugLogger");
+
 // ======================== HELPERS ========================
 
 const normalize = (str = "") =>
@@ -43,6 +47,11 @@ async function calculatePackageCostInternal(body) {
       priceMarkup = 0,
 
     } = body;
+
+    writeLog({
+      type: "Calculation booking request started",
+      body: JSON.stringify(body, null, 2),
+    });
 
     // ========================
     // PACKAGE VALIDATION
