@@ -525,14 +525,19 @@ async function calculatePackageCostInternal(body) {
     // FINAL CALCULATION
     // ========================
 
-    const travellerBasePrice =
-      basePackagePrice *
-      Number(totalTraveller);
+    const packageInflation =
+  Number(pkg.inflatedPercentage || 0);
 
-    const finalPackage =
-      travellerBasePrice +
-      hotelCost +
-      vehicleFinal;
+const subtotal =
+  hotelCost +
+  vehicleFinal;
+
+const inflatedAmount =
+  (subtotal * packageInflation) / 100;
+
+const finalPackage =
+  subtotal +
+  inflatedAmount;
 
     // ========================
     // RESPONSE
@@ -545,29 +550,32 @@ async function calculatePackageCostInternal(body) {
       finalPackage,
 
       breakdown: {
+  days,
+  totalTraveller,
 
-        days,
+  hotelCost,
 
-        totalTraveller,
+  vehicleFinal,
 
-        travellerBasePrice,
+  subtotal,
 
-        basePackagePrice,
+  inflatedPercentage:
+    packageInflation,
 
-        hotelCost,
+  inflatedAmount,
 
-        vehicleFinal,
+  finalPackage,
 
-        markup,
+  markup,
 
-        hotelBreakdown,
+  hotelBreakdown,
 
-        hotelPriceFound:
-          hotelCost > 0,
+  hotelPriceFound:
+    hotelCost > 0,
 
-        vehiclePriceFound:
-          vehicleFinal > 0,
-      },
+  vehiclePriceFound:
+    vehicleFinal > 0,
+}
     };
 
   } catch (err) {
