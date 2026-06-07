@@ -43,6 +43,7 @@ const updateHolidayPackage = async (req, res) => {
       inflatedPercentage,
       active,
       vehicles,
+      availableVehicle,
       startCity,
       itinerary,
     } = req.body;
@@ -67,7 +68,7 @@ const updateHolidayPackage = async (req, res) => {
     // Parse JSON fields if they're strings
     let parsedItinerary = itinerary;
     let parsedDestinationCity = destinationCity;
-    let parsedVehicles = vehicles;
+    let parsedVehicles = vehicles || availableVehicle;
 
     try {
       if (typeof itinerary === "string") {
@@ -76,9 +77,10 @@ const updateHolidayPackage = async (req, res) => {
       if (typeof destinationCity === "string") {
         parsedDestinationCity = JSON.parse(destinationCity);
       }
-      if (typeof vehicles === "string") {
-        parsedVehicles = JSON.parse(vehicles);
+      if (typeof parsedVehicles === "string") {
+        parsedVehicles = JSON.parse(parsedVehicles);
       }
+
     } catch (parseError) {
       return res
         .status(400)
@@ -111,46 +113,51 @@ const updateHolidayPackage = async (req, res) => {
 
     // Validate hotel selections from itinerary if provided
     if (parsedItinerary && Array.isArray(parsedItinerary)) {
+
       for (const item of parsedItinerary) {
-        if (item.stay && item.hotel_id) {
-          const hotel = await hotelCollection.findById(item.hotel_id);
+
+        if (!item.stay) {
+          continue;
+        }
+
+        if (
+          !Array.isArray(item.hotels) ||
+          !item.hotels.length
+        ) {
+          return res.status(400).json(
+            generateErrorResponse(
+              "Validation Error",
+              `At least one hotel is required for day ${item.dayNo}`
+            )
+          );
+        }
+
+        for (const hotelOption of item.hotels) {
+
+          const hotel =
+            await hotelCollection.findById(
+              hotelOption.hotel_id
+            );
 
           if (!hotel) {
+
             return res.status(400).json(
               generateErrorResponse(
                 "Validation Error",
-                `Hotel not found for day ${item.dayNo}. Please select a valid hotel.`
+                `Hotel not found for day ${item.dayNo}`
               )
             );
           }
 
           if (!hotel.active) {
+
             return res.status(400).json(
               generateErrorResponse(
                 "Validation Error",
-                `Hotel "${hotel.hotelName}" is inactive for day ${item.dayNo}. Please select an active hotel.`
+                `Hotel ${hotel.hotelName} is inactive`
               )
             );
           }
-
-          // Validate location match if state and city are provided
-          if (item.state && item.city) {
-            const itemState = typeof item.state === 'object' ? item.state.name : item.state;
-            const itemCity = typeof item.city === 'object' ? item.city.name : item.city;
-
-            if (hotel.state !== itemState || hotel.city !== itemCity) {
-              return res.status(400).json(
-                generateErrorResponse(
-                  "Validation Error",
-                  `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${itemState}, ${itemCity}). Please select a hotel from the correct location.`
-                )
-              );
-            }
-          }
-
-          console.log(
-            `✅ Day ${item.dayNo}: Validated hotel: ${hotel.hotelName} (${hotel._id})`
-          );
         }
       }
     }
@@ -249,13 +256,55 @@ const updateHolidayPackage = async (req, res) => {
       existingPackage.itinerary = parsedItinerary;
     }
 
-    if (parsedVehicles !== undefined) {
-      existingPackage.vehiclePrices = parsedVehicles;
-    }
+    if (
+  Array.isArray(parsedVehicles)
+) {
+
+  existingPackage.vehiclePrices =
+    parsedVehicles;
+
+  existingPackage.availableVehicle =
+    parsedVehicles;
+}
 
     // ===================================
     // RECALCULATE PACKAGE COST
     // ===================================
+
+    console.log(
+      "parsedVehicles:",
+      JSON.stringify(parsedVehicles, null, 2)
+    );
+
+    console.log(
+      "vehiclePrices before calc:",
+      JSON.stringify(
+        existingPackage.vehiclePrices,
+        null,
+        2
+      )
+    );
+
+    console.log(
+      "itinerary before calc:",
+      JSON.stringify(
+        existingPackage.itinerary,
+        null,
+        2
+      )
+    );
+
+    console.log(
+  "recommendedPricing calc input:",
+  {
+    hotels:
+      existingPackage.itinerary,
+    vehicles:
+      existingPackage.vehiclePrices,
+    inflation:
+      existingPackage.inflatedPercentage,
+  }
+);
 
     const pricing =
       await calculateRecommendedPackagePrice(

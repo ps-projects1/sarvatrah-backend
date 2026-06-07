@@ -217,99 +217,18 @@ const addHolidayPackage = async (req, res) => {
     }
     // Validate hotel selections from admin
     for (const item of itinerary) {
-      if (item.stay) {
-        // If admin provided a hotel_id, validate it exists and is active
-        if (item.hotel_id) {
-          const hotel = await hotelCollection.findById(item.hotel_id);
-
-          if (!hotel) {
-            return res.status(400).json(
-              generateErrorResponse(
-                `Hotel not found for day ${item.dayNo}. Please select a valid hotel.`
-              )
-            );
-          }
-
-          if (!hotel.active) {
-            return res.status(400).json(
-              generateErrorResponse(
-                `Hotel "${hotel.hotelName}" is inactive for day ${item.dayNo}. Please select an active hotel.`
-              )
-            );
-          }
-
-          // Validate location match
-          if (hotel.state !== item.state || hotel.city !== item.city) {
-
-            const hotelState =
-              String(hotel.state || "")
-                .trim()
-                .toLowerCase();
-
-            const hotelCity =
-              String(hotel.city || "")
-                .trim()
-                .toLowerCase();
-
-            const itineraryState =
-              String(
-                typeof item.state === "object"
-                  ? item.state?.name
-                  : item.state
-              )
-                .trim()
-                .toLowerCase();
-
-            const itineraryCity =
-              String(
-                typeof item.city === "object"
-                  ? item.city?.name
-                  : item.city
-              )
-                .trim()
-                .toLowerCase();
-
-            if (
-              hotelState !== itineraryState ||
-              hotelCity !== itineraryCity
-            ) {
-              return res.status(400).json(
-                generateErrorResponse(
-                  `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${itineraryState}, ${itineraryCity}). Please select a hotel from the correct location.`
-                )
-              );
-            }
-          }
-
-          // Keep admin's selection - don't override
-          selectedHotel = item.hotel_id;
-          console.log("selectedHotel above: ", selectedHotel);
-          console.log(
-            `✅ Day ${item.dayNo}: Using admin-selected hotel: ${hotel.hotelName} (${hotel._id})`
-          );
-        } else {
-          // Fallback: If admin didn't select hotel, use default hotel
-          const existingDefaultHotel = await hotelCollection.findOne({
-            state: item.state,
-            city: item.city,
-            defaultSelected: true,
-          });
-
-          if (!existingDefaultHotel) {
-            return res.status(400).json(
-              generateErrorResponse(
-                `No hotel selected for day ${item.dayNo} in ${item.state}, ${item.city}. Please select a hotel.`
-              )
-            );
-          }
-
-          selectedHotel = existingDefaultHotel._id;
-          console.log("selectedHotel below: ", selectedHotel);
-          item.hotel_id = selectedHotel;
-          console.log(
-            `ℹ️  Day ${item.dayNo}: No hotel selected, using default: ${existingDefaultHotel.hotelName} (${existingDefaultHotel._id})`
-          );
-        }
+      if (
+        item.stay &&
+        (
+          !item.hotels ||
+          !item.hotels.length
+        )
+      ) {
+        return res.status(400).json(
+          generateErrorResponse(
+            `At least one hotel is required for day ${item.dayNo}`
+          )
+        );
       }
     }
 
