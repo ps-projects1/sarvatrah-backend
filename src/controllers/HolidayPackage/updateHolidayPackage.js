@@ -177,61 +177,100 @@ writeLog({
     }
 
     // Handle file uploads
-    const convertPath = (path) =>
-      path.replace(/\\/g, "/").replace("public/", "");
+    // ===================================
+// HANDLE FILES
+// ===================================
 
-    // Update theme image if provided
-    if (req.files && req.files.length > 0) {
-      const themeFile = req.files[0];
+const themeFile =
+  req.files?.themeImage?.[0];
 
-      // Upload to Supabase or use local path
-      let themeImgPath;
-      try {
-        themeImgPath = await uploadToSupabase(
-          themeFile.path,
-          themeFile.originalname,
-          "holiday/theme"
+const additionalFiles =
+  req.files?.files || [];
+
+const convertPath = path =>
+  path
+    .replace(/\\/g, "/")
+    .replace("public/", "");
+
+// THEME IMAGE
+
+if (themeFile) {
+
+  let themeImgPath;
+
+  try {
+
+    themeImgPath =
+      await uploadToSupabase(
+        themeFile.path,
+        themeFile.originalname,
+        "holiday/theme"
+      );
+
+  } catch (err) {
+
+    themeImgPath =
+      `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`;
+  }
+
+  existingPackage.themeImg = {
+
+    filename:
+      themeFile.filename,
+
+    path:
+      themeImgPath,
+
+    mimetype:
+      themeFile.mimetype,
+  };
+}
+
+// GALLERY IMAGES
+
+if (additionalFiles.length) {
+
+  const uploadedImages = [];
+
+  for (const file of additionalFiles) {
+
+    let fileUrl;
+
+    try {
+
+      fileUrl =
+        await uploadToSupabase(
+          file.path,
+          file.originalname,
+          "holiday/gallery"
         );
-      } catch (uploadError) {
-        console.warn("Supabase upload failed, using local path:", uploadError.message);
-        themeImgPath = `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`;
-      }
 
-      existingPackage.themeImg = {
-        filename: themeFile.filename,
-        path: themeImgPath,
-        mimetype: themeFile.mimetype,
-      };
+    } catch (err) {
 
-      // Handle additional images
-      if (req.files.length > 1) {
-        const additionalImages = [];
-        for (let i = 1; i < req.files.length; i++) {
-          const file = req.files[i];
-          let filePath;
-
-          try {
-            filePath = await uploadToSupabase(
-              file.path,
-              file.originalname,
-              "holiday/gallery"
-            );
-          } catch (uploadError) {
-            console.warn("Supabase upload failed, using local path:", uploadError.message);
-            filePath = `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
-          }
-
-          additionalImages.push({
-            filename: file.filename,
-            path: filePath,
-            mimetype: file.mimetype,
-          });
-        }
-
-        // Append new images to existing ones
-        existingPackage.images = [...existingPackage.images, ...additionalImages];
-      }
+      fileUrl =
+        `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
     }
+
+    uploadedImages.push({
+
+      filename:
+        file.filename,
+
+      path:
+        fileUrl,
+
+      mimetype:
+        file.mimetype,
+    });
+  }
+
+  existingPackage.images = [
+
+    ...(existingPackage.images || []),
+
+    ...uploadedImages,
+  ];
+}
 
     // Update fields (only if provided)
     if (objectType !== undefined) existingPackage.objectType = objectType;
