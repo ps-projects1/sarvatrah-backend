@@ -108,25 +108,29 @@ const createBooking = async (req, res) => {
     const userId = req.user._id;
 
     const {
-  startDate,
-  endDate,
-  totalTraveller,
-  vehicleId,
-  packageId,
-  travellers,
-  billingInfo,
+      startDate,
+      endDate,
+      totalPrice,
+      totalTraveller,
+      vehicleId,
+      hotelId,
+      packageId,
+      travellers,
+      billingInfo,
 
-  selectedHotels = [],
+      // Holiday fields
+      roomType,
+      occupancy,
+      childWithBed,
+      childWithoutBed,
+      priceMarkup,
 
-  childWithBed,
-  childWithoutBed,
-  priceMarkup,
+      // Experience fields
+      pricingId,
+      pickupType,
 
-  pricingId,
-  pickupType,
-
-  bookingType = "holiday"
-} = req.body;
+      bookingType = "holiday"
+    } = req.body;
 
     /* =====================
        BASIC VALIDATION
@@ -156,12 +160,7 @@ const createBooking = async (req, res) => {
     let experience = null;
 
     if (bookingType === "holiday") {
-      if (
-  !startDate ||
-  !endDate ||
-  !vehicleId ||
-  !selectedHotels?.length
-) {
+      if (!startDate || !endDate || !vehicleId || !hotelId) {
         return res.status(400).json({
           message: "Missing required holiday booking fields."
         });
@@ -200,23 +199,12 @@ const createBooking = async (req, res) => {
         return res.status(404).json({ message: "Vehicle not found." });
     }
 
+    let hotel = null;
     if (bookingType === "holiday") {
-
-  for (const hotelSelection of selectedHotels) {
-
-    const hotel =
-      await hotelCollection.findById(
-        hotelSelection.hotelId
-      );
-
-    if (!hotel) {
-
-      return res.status(404).json({
-        message: `Hotel not found for day ${hotelSelection.dayNo}`
-      });
+      hotel = await hotelCollection.findById(hotelId);
+      if (!hotel)
+        return res.status(404).json({ message: "Hotel not found." });
     }
-  }
-}
 
     /* =====================
        TRAVELLER VALIDATION
@@ -236,6 +224,178 @@ const createBooking = async (req, res) => {
         message: "Total travellers count mismatch."
       });
 
+    console.log("bookingType:", bookingType);
+    console.log("packageId:", packageId);
+
+    /* =====================================================
+       OLD VERSION — CLIENT PROVIDED PRICE
+    ===================================================== */
+    if (totalPrice) {
+
+      const subtotal =
+        Number(totalPrice);
+
+      const taxAmount = Math.round(
+        (subtotal * GST_PERCENT) / 100
+      );
+
+      const grandTotal =
+        subtotal + taxAmount;
+
+      const bookingData = {
+        user: userId,
+        bookingType,
+        vehicleId,
+        hotelId: hotelId,
+        startDate,
+        endDate,
+        totalTraveller,
+        totalPrice: Number(totalPrice),
+        status: "PaymentPending",
+        travellers,
+        billingInfo,
+        payment: {
+          subtotal,
+          taxAmount,
+          totalAmount: grandTotal,
+          paidAmount: 0,
+          pendingAmount: grandTotal,
+          amount: grandTotal,
+          status: "created"
+        }
+      };
+
+      if (bookingType === "holiday")
+        bookingData.holidayPackageId = packageId;
+
+      if (bookingType === "pilgrimage")
+        bookingData.pilgrimagePackageId = packageId;
+
+      if (bookingType === "experience")
+        bookingData.experienceId = packageId;
+
+      bookingData.payment.status = "paid";
+
+      const booking = new Booking(bookingData);
+      await booking.save();
+
+      /* =====================
+         PARTIAL PAYMENT LOGIC
+      ===================== */
+      const partialPaymentChosen = req.body.partialPayment === true;
+
+      const activePackage = holidayPackage || pilgrimagePackage;
+      if (activePackage?.partialPayment && partialPaymentChosen) {
+        const dueDays = activePackage.partialPaymentDueDays || 0;
+        const percentage = activePackage.partialPaymentPercentage || 0;
+        const partialAmount = Math.round((booking.totalPrice * percentage) / 100);
+
+        booking.partialPayment = true;
+        booking.partialPaymentDueDays = dueDays;
+        booking.partialPaymentPercentage = percentage;
+        booking.partialAmount = partialAmount;
+        booking.payment.status = "partial";
+        booking.partialPaymentDueDate = new Date(
+          new Date(startDate).getTime() - dueDays * 24 * 60 * 60 * 1000
+        );
+        booking.payment.paidAmount =
+          partialAmount;
+
+        booking.payment.pendingAmount =
+          grandTotal - partialAmount;
+
+        booking.payment.amount =
+          partialAmount;
+
+        await booking.save();
+      }
+
+      try {
+
+        const updatedBooking = await Booking.findById(booking._id).populate("user", "firstname lastname email").populate("holidayPackageId")
+          .populate("pilgrimagePackageId")
+          .populate("experienceId")
+          .populate("hotelId")
+          .populate("vehicleId");
+
+        // Generate invoice
+        const pdfPath = await generateBookingInvoice({
+          booking: updatedBooking,
+          user: updatedBooking.user
+        });
+
+        const voucherPdfPath = await generateVoucherPDF({
+          booking: updatedBooking,
+          user: updatedBooking.user
+        });
+
+        const ItineraryPdfPath = await generateItineraryPDF({
+          booking: updatedBooking,
+          user: updatedBooking.user
+        });
+
+        let invoiceUrl;
+        let voucherPdfUrl;
+        let ItineraryPdfUrl;
+
+        try {
+
+          invoiceUrl = await uploadToSupabase(
+            pdfPath,
+            `booking-invoice-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+
+          voucherPdfUrl = await uploadToSupabase(
+            voucherPdfPath,
+            `booking-voucher-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+
+          ItineraryPdfUrl = await uploadToSupabase(
+            ItineraryPdfPath,
+            `booking-itinerary-${booking._id}.pdf`,
+            "booking-invoices"
+          );
+
+        } catch (uploadError) {
+          console.error("Supabase upload failed:", uploadError.message);
+          console.error("Full upload error:", uploadError);
+          invoiceUrl = pdfPath;
+        }
+
+        // Save invoice URL
+        booking.invoice = invoiceUrl;
+        await booking.save();
+
+        // Send email
+        sendBookingInvoiceEmail({
+          email: [updatedBooking.user?.email, updatedBooking.billingInfo?.email]
+            .filter(Boolean)
+            .join(","),
+          booking: updatedBooking,
+          invoiceUrl,
+          voucherPdfUrl,
+          ItineraryPdfUrl
+        });
+
+      } catch (err) {
+        console.error("Booking invoice process failed:", err);
+      }
+
+      const populatedBooking = await Booking.findById(booking._id)
+        .populate("user", "firstname lastname email")
+        .populate("holidayPackageId", "packageName uniqueId")
+        .lean();
+
+      return res.status(201).json({
+        success: true,
+        message: "Booking created successfully (old version).",
+        booking: populatedBooking,
+        version: "old"
+      });
+    }
+
     /* =====================================================
        NEW VERSION — SERVER CALCULATION
     ===================================================== */
@@ -249,24 +409,23 @@ const createBooking = async (req, res) => {
     ===================== */
     if (bookingType === "holiday") {
 
-      const costData =
-  await calculatePackageCostInternal({
-    holidayPackageId: packageId,
+      if (!roomType || !occupancy)
+        return res.status(400).json({
+          message: "roomType and occupancy are required."
+        });
 
-    vehicleId,
-
-    selectedHotels,
-
-    startDate,
-    endDate,
-
-    totalTraveller,
-
-    childWithBed,
-    childWithoutBed,
-
-    priceMarkup
-  });
+      const costData = await calculatePackageCostInternal({
+        holidayPackageId: packageId,
+        vehicleId,
+        hotel_id: hotelId,
+        roomType,
+        startDate,
+        endDate,
+        occupancy,
+        childWithBed,
+        childWithoutBed,
+        priceMarkup
+      });
 
       if (!costData.success)
         return res.status(400).json({
@@ -281,10 +440,12 @@ const createBooking = async (req, res) => {
       };
 
       hotelDetails = {
-  selectedHotels,
-  childWithBed,
-  childWithoutBed
-};
+        hotelId,
+        roomType,
+        occupancy,
+        childWithBed,
+        childWithoutBed
+      };
     }
 
     /* =====================
@@ -374,10 +535,7 @@ const createBooking = async (req, res) => {
       user: userId,
       bookingType,
       vehicleId,
-      hotelId:
-      bookingType === "holiday"
-        ? selectedHotels?.[0]?.hotelId
-        : undefined,
+      hotelId: bookingType === "holiday" ? hotelId : undefined,
       startDate,
       endDate,
       totalTraveller,

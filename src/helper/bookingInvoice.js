@@ -61,8 +61,19 @@ const generateBookingInvoice = async ({ booking, user }) => {
     const endDate = moment(booking.endDate).format("DD MMM YYYY");
 
     // Rooms
-    const rooms = booking.hotelDetails?.occupancy || "N/A";
-    const roomType = booking.hotelDetails?.roomType || "N/A";
+    const selectedHotels =
+  booking.hotelDetails?.selectedHotels || [];
+
+const roomType =
+  selectedHotels
+    .map(h => h.roomType)
+    .filter(Boolean)
+    .join(", ") || "N/A";
+
+const rooms =
+  selectedHotels.length
+    ? selectedHotels[0].occupancy
+    : "N/A";
 
     // Travellers count
     const totalPeople = booking.totalTraveller;
