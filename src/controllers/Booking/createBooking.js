@@ -108,25 +108,27 @@ const createBooking = async (req, res) => {
     const userId = req.user._id;
 
     const {
-  startDate,
-  endDate,
-  totalTraveller,
-  vehicleId,
-  packageId,
-  travellers,
-  billingInfo,
+      startDate,
+      endDate,
+      totalTraveller,
+      vehicleId,
+      packageId,
+      travellers,
+      billingInfo,
 
-  selectedHotels = [],
+      selectedHotels = [],
 
-  childWithBed,
-  childWithoutBed,
-  priceMarkup,
+      childWithBed,
+      childWithoutBed,
+      priceMarkup,
 
-  pricingId,
-  pickupType,
+      partialPayment = false,
 
-  bookingType = "holiday"
-} = req.body;
+      pricingId,
+      pickupType,
+
+      bookingType = "holiday"
+    } = req.body;
 
     /* =====================
        BASIC VALIDATION
@@ -157,11 +159,11 @@ const createBooking = async (req, res) => {
 
     if (bookingType === "holiday") {
       if (
-  !startDate ||
-  !endDate ||
-  !vehicleId ||
-  !selectedHotels?.length
-) {
+        !startDate ||
+        !endDate ||
+        !vehicleId ||
+        !selectedHotels?.length
+      ) {
         return res.status(400).json({
           message: "Missing required holiday booking fields."
         });
@@ -202,21 +204,21 @@ const createBooking = async (req, res) => {
 
     if (bookingType === "holiday") {
 
-  for (const hotelSelection of selectedHotels) {
+      for (const hotelSelection of selectedHotels) {
 
-    const hotel =
-      await hotelCollection.findById(
-        hotelSelection.hotelId
-      );
+        const hotel =
+          await hotelCollection.findById(
+            hotelSelection.hotelId
+          );
 
-    if (!hotel) {
+        if (!hotel) {
 
-      return res.status(404).json({
-        message: `Hotel not found for day ${hotelSelection.dayNo}`
-      });
+          return res.status(404).json({
+            message: `Hotel not found for day ${hotelSelection.dayNo}`
+          });
+        }
+      }
     }
-  }
-}
 
     /* =====================
        TRAVELLER VALIDATION
@@ -250,23 +252,23 @@ const createBooking = async (req, res) => {
     if (bookingType === "holiday") {
 
       const costData =
-  await calculatePackageCostInternal({
-    holidayPackageId: packageId,
+        await calculatePackageCostInternal({
+          holidayPackageId: packageId,
 
-    vehicleId,
+          vehicleId,
 
-    selectedHotels,
+          selectedHotels,
 
-    startDate,
-    endDate,
+          startDate,
+          endDate,
 
-    totalTraveller,
+          totalTraveller,
 
-    childWithBed,
-    childWithoutBed,
+          childWithBed,
+          childWithoutBed,
 
-    priceMarkup
-  });
+          priceMarkup
+        });
 
       if (!costData.success)
         return res.status(400).json({
@@ -281,10 +283,10 @@ const createBooking = async (req, res) => {
       };
 
       hotelDetails = {
-  selectedHotels,
-  childWithBed,
-  childWithoutBed
-};
+        selectedHotels,
+        childWithBed,
+        childWithoutBed
+      };
     }
 
     /* =====================
@@ -375,9 +377,9 @@ const createBooking = async (req, res) => {
       bookingType,
       vehicleId,
       hotelId:
-      bookingType === "holiday"
-        ? selectedHotels?.[0]?.hotelId
-        : undefined,
+        bookingType === "holiday"
+          ? selectedHotels?.[0]?.hotelId
+          : undefined,
       startDate,
       endDate,
       totalTraveller,
@@ -410,6 +412,61 @@ const createBooking = async (req, res) => {
 
     const booking = new Booking(bookingData);
     await booking.save();
+
+    /* =====================
+      PARTIAL PAYMENT
+    ===================== */
+
+    const activePackage =
+      holidayPackage || pilgrimagePackage;
+
+    if (
+      partialPayment === true &&
+      activePackage?.partialPayment
+    ) {
+
+      const dueDays =
+        activePackage.partialPaymentDueDays || 0;
+
+      const percentage =
+        activePackage.partialPaymentPercentage || 0;
+
+      // Use grand total including GST
+      const partialAmount =
+        Math.round(
+          (grandTotal * percentage) / 100
+        );
+
+      booking.partialPayment = true;
+
+      booking.partialPaymentDueDays =
+        dueDays;
+
+      booking.partialPaymentPercentage =
+        percentage;
+
+      booking.partialAmount =
+        partialAmount;
+
+      booking.partialPaymentDueDate =
+        new Date(
+          new Date(startDate).getTime() -
+          dueDays * 24 * 60 * 60 * 1000
+        );
+
+      booking.payment.status = "partial";
+
+      booking.payment.paidAmount =
+        partialAmount;
+
+      booking.payment.pendingAmount =
+        grandTotal - partialAmount;
+
+      booking.payment.amount =
+        partialAmount;
+
+      await booking.save();
+    }
 
     try {
 
