@@ -7,6 +7,9 @@ const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const Joi = require("joi");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
+const {
+  calculateRecommendedPackagePrice,
+} = require("../../utils/packagePricingCalculator");
 
 const updatePilgrimage = async (req, res) => {
   try {
@@ -34,7 +37,6 @@ const updatePilgrimage = async (req, res) => {
       refundableTerms,
       include,
       exclude,
-      basePrice,
       priceMarkup,
       inflatedPercentage,
       active,
@@ -108,45 +110,57 @@ const updatePilgrimage = async (req, res) => {
     // Validate hotel selections from itinerary if provided
     if (parsedItinerary && Array.isArray(parsedItinerary)) {
       for (const item of parsedItinerary) {
-        if (item.stay && item.hotel_id) {
-          const hotel = await hotelCollection.findById(item.hotel_id);
+        for (const item of parsedItinerary) {
 
-          if (!hotel) {
+          if (!item.stay) {
+            continue;
+          }
+
+          const resolvedHotelId =
+            item.hotel_id ||
+            (
+              item.hotels &&
+                item.hotels.length
+                ? item.hotels[0].hotel_id
+                : null
+            );
+
+          if (!resolvedHotelId) {
+
             return res.status(400).json(
               generateErrorResponse(
                 "Validation Error",
-                `Hotel not found for day ${item.dayNo}. Please select a valid hotel.`
+                `Hotel is required for day ${item.dayNo}`
+              )
+            );
+          }
+
+          const hotel =
+            await hotelCollection.findById(
+              resolvedHotelId
+            );
+
+          if (!hotel) {
+
+            return res.status(400).json(
+              generateErrorResponse(
+                "Validation Error",
+                `Hotel not found for day ${item.dayNo}`
               )
             );
           }
 
           if (!hotel.active) {
+
             return res.status(400).json(
               generateErrorResponse(
                 "Validation Error",
-                `Hotel "${hotel.hotelName}" is inactive for day ${item.dayNo}. Please select an active hotel.`
+                `Hotel "${hotel.hotelName}" is inactive`
               )
             );
           }
 
-          // Validate location match if state and city are provided
-          if (item.state && item.city) {
-            const itemState = typeof item.state === 'object' ? item.state.name : item.state;
-            const itemCity = typeof item.city === 'object' ? item.city.name : item.city;
-            
-            if (hotel.state !== itemState || hotel.city !== itemCity) {
-              return res.status(400).json(
-                generateErrorResponse(
-                  "Validation Error",
-                  `Hotel location (${hotel.state}, ${hotel.city}) doesn't match day ${item.dayNo} location (${itemState}, ${itemCity}). Please select a hotel from the correct location.`
-                )
-              );
-            }
-          }
-
-          console.log(
-            `✅ Day ${item.dayNo}: Validated hotel: ${hotel.hotelName} (${hotel._id})`
-          );
+          item.hotel_id = resolvedHotelId;
         }
       }
     }
@@ -233,7 +247,7 @@ const updatePilgrimage = async (req, res) => {
     if (refundableTerms !== undefined) existingPackage.refundableTerms = refundableTerms;
     if (include !== undefined) existingPackage.include = include;
     if (exclude !== undefined) existingPackage.exclude = exclude;
-    if (basePrice !== undefined) existingPackage.basePrice = parseFloat(basePrice);
+
     if (priceMarkup !== undefined) existingPackage.priceMarkup = parseFloat(priceMarkup);
     if (inflatedPercentage !== undefined) existingPackage.inflatedPercentage = parseFloat(inflatedPercentage);
     if (active !== undefined) existingPackage.active = active === "true" || active === true;
@@ -241,7 +255,21 @@ const updatePilgrimage = async (req, res) => {
     if (parsedItinerary !== undefined) existingPackage.itinerary = parsedItinerary;
     if (parsedVehicles !== undefined) existingPackage.vehiclePrices = parsedVehicles;
 
-    existingPackage.partialPaymentDueDays = parseInt(partialPaymentDueDays);
+    const pricing =
+      await calculateRecommendedPackagePrice(
+
+        existingPackage.itinerary,
+
+        existingPackage.vehiclePrices,
+
+        existingPackage.inflatedPercentage
+      );
+
+    existingPackage.recommendedPricing =
+      pricing;
+
+    existingPackage.basePrice =
+      pricing.finalCost;
 
     // Save updated package
     const updatedPackage = await existingPackage.save();

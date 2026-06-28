@@ -196,6 +196,59 @@ const pilgrimageSchema = new dbs.Schema(
         images: [imageSchema],
         itinerary: [dayItinerarySchema],
         vehiclePrices: [vehiclePriceSchema],
+
+        recommendedPricing: {
+            hotelCost: {
+                type: Number,
+                default: 0,
+            },
+
+            vehicleCost: {
+                type: Number,
+                default: 0,
+            },
+
+            subtotal: {
+                type: Number,
+                default: 0,
+            },
+
+            inflatedPercentage: {
+                type: Number,
+                default: 0,
+            },
+
+            inflatedAmount: {
+                type: Number,
+                default: 0,
+            },
+
+            finalCost: {
+                type: Number,
+                default: 0,
+            },
+
+            selectedHotels: [
+                {
+                    dayNo: Number,
+                    hotelId: {
+                        type: dbs.Schema.Types.ObjectId,
+                        ref: "Hotel",
+                    },
+                    hotelName: String,
+                    roomType: String,
+                    occupancy: Number,
+                    pricePerNight: Number,
+                }
+            ],
+
+            selectedVehicle: {
+                vehicle_id: String,
+                vehicleType: String,
+                price: Number,
+            }
+        }
+
     },
     {
         timestamps: true, // Adds createdAt and updatedAt automatically

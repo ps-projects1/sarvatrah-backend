@@ -6,6 +6,10 @@ const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const User = require("../../models/user");
 const { calculatePackageCostInternal } = require("./calBooking");
+const {
+    calculateExperienceCostInternal
+} = require("./calExperienceBooking");
+
 const generateBookingInvoice = require("../../helper/bookingInvoice");
 const { generateVoucherPDF, generateItineraryPDF } = require("../../helper/bookingPDFs");
 const { sendBookingInvoiceEmail } = require("../../helper/sendMail");
@@ -671,18 +675,33 @@ const createExperienceBooking = async (req, res) => {
        PRICE CALCULATION
     =============================== */
 
-    let finalPrice = 0;
+    const costData =
+    await calculateExperienceCostInternal({
 
-    const basePrice = selectedPricing.price || 0;
-    finalPrice = basePrice * Number(totalTraveller);
+        experienceId,
 
-    // Add pickup cost if selected
-    if (
-      pickupType &&
-      experience.travelling_facility?.[pickupType]?.price
-    ) {
-      finalPrice += experience.travelling_facility[pickupType].price;
-    }
+        pricingId,
+
+        totalTraveller,
+
+        pickupType
+    });
+
+if (!costData.success) {
+
+    return res.status(400).json({
+
+        success: false,
+
+        message: costData.message
+    });
+}
+
+const finalPrice =
+    costData.finalPackage;
+
+const costBreakup =
+    costData.breakdown;
 
     /* ===============================
        CREATE BOOKING
@@ -721,16 +740,7 @@ const createExperienceBooking = async (req, res) => {
         amount: grandTotal,
         status: "created"
       },
-      costBreakup: {
-        basePrice,
-        totalTraveller,
-        pickupCharge:
-          pickupType &&
-            experience.travelling_facility?.[pickupType]?.price
-            ? experience.travelling_facility[pickupType].price
-            : 0,
-        finalPrice
-      }
+      costBreakup: costBreakup
     };
 
     const booking = new Booking(bookingData);

@@ -7,6 +7,9 @@ const { hotelCollection } = require("../../models/hotel");
 const { vehicleCollection } = require("../../models/vehicle");
 const Joi = require("joi");
 const uploadToSupabase = require("../../utils/uploadToSupabase");
+const {
+  calculateRecommendedPackagePrice,
+} = require("../../utils/packagePricingCalculator");
 
 const addPilrimagePackage = async (req, res) => {
   try {
@@ -34,7 +37,6 @@ const addPilrimagePackage = async (req, res) => {
       refundableTerms,
       include,
       exclude,
-      basePrice,
       priceMarkup,
       inflatedPercentage,
       active,
@@ -86,7 +88,6 @@ const addPilrimagePackage = async (req, res) => {
       include: Joi.string(),
       exclude: Joi.string(),
       itinerary: Joi.array().items(Joi.object()).required(),
-      basePrice: Joi.number().min(0).default(0),
       priceMarkup: Joi.number().default(0),
       inflatedPercentage: Joi.number().default(0),
       active: Joi.boolean().default(false),
@@ -117,7 +118,6 @@ const addPilrimagePackage = async (req, res) => {
       include,
       exclude,
       itinerary,
-      basePrice,
       priceMarkup,
       inflatedPercentage,
       active,
@@ -313,7 +313,13 @@ const addPilrimagePackage = async (req, res) => {
         });
       }
     }
-    
+
+    const pricingSnapshot =
+      await calculateRecommendedPackagePrice(
+        itinerary,
+        vehicles,
+        inflatedPercentage
+      );
 
     // Create a new holiday package
     const newPilgrimagePackage = new Pilgrimage({
@@ -342,7 +348,10 @@ const addPilrimagePackage = async (req, res) => {
       include,
       exclude,
       itinerary,
-      basePrice: basePrice || 0,
+
+      basePrice: pricingSnapshot.finalCost,
+      recommendedPricing: pricingSnapshot,
+
       priceMarkup: priceMarkup || 0,
       inflatedPercentage: inflatedPercentage || 0,
       active: active || false,
