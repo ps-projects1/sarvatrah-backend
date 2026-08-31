@@ -398,6 +398,7 @@ writeLog({
       await calculateRecommendedPackagePrice(
         existingPackage.itinerary,
         existingPackage.vehiclePrices,
+        existingPackage.priceMarkup,
         existingPackage.inflatedPercentage
       );
 

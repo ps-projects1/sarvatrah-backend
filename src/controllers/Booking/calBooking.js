@@ -10,18 +10,15 @@ const {
 // ======================== HELPERS ========================
 
 const normalize = (str = "") =>
-  str
+  String(str)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
 // ======================== INTERNAL FUNCTION ===========================
 
 async function calculatePackageCostInternal(body) {
-
   try {
-
     const {
-
       // PACKAGE
       holidayPackageId,
       pilgrimagePackageId,
@@ -42,10 +39,6 @@ async function calculatePackageCostInternal(body) {
       // CHILD OPTIONS
       childWithBed = false,
       childWithoutBed = false,
-
-      // MARKUP
-      priceMarkup = 0,
-
     } = body;
 
     writeLog({
@@ -62,7 +55,6 @@ async function calculatePackageCostInternal(body) {
       pilgrimagePackageId;
 
     if (!packageId) {
-
       throw new Error(
         "Package ID is required"
       );
@@ -75,14 +67,11 @@ async function calculatePackageCostInternal(body) {
     let pkg = null;
 
     if (holidayPackageId) {
-
       pkg =
         await HolidayPackage.findById(
           holidayPackageId
         );
-
     } else {
-
       pkg =
         await Pilgrimage.findById(
           pilgrimagePackageId
@@ -90,7 +79,6 @@ async function calculatePackageCostInternal(body) {
     }
 
     if (!pkg) {
-
       throw new Error(
         "Package not found"
       );
@@ -110,7 +98,6 @@ async function calculatePackageCostInternal(body) {
       isNaN(bookingStart.getTime()) ||
       isNaN(bookingEnd.getTime())
     ) {
-
       throw new Error(
         "Invalid booking dates"
       );
@@ -118,22 +105,43 @@ async function calculatePackageCostInternal(body) {
 
     const days = Math.ceil(
       (bookingEnd - bookingStart) /
-      (1000 * 60 * 60 * 24)
+        (1000 * 60 * 60 * 24)
     );
 
     if (days <= 0) {
-
       throw new Error(
         "End date must be after start date"
       );
     }
 
     // ========================
-    // BASE PACKAGE PRICE
+    // PACKAGE PRICING
     // ========================
 
-    const basePackagePrice =
-      Number(pkg.basePrice || 0);
+    /*
+     * IMPORTANT:
+     *
+     * Both pricing percentages belong to
+     * the package itself.
+     *
+     * priceMarkup:
+     *     Added to the whole package cost.
+     *
+     * inflatedPercentage:
+     *     Treated as a discount and deducted
+     *     from the whole package cost.
+     *
+     * These values are read directly from
+     * the database package.
+     *
+     * The frontend does NOT control them.
+     */
+
+    const packageMarkup =
+      Number(pkg.priceMarkup || 0);
+
+    const packageInflation =
+      Number(pkg.inflatedPercentage || 0);
 
     // ========================
     // HOTEL CALCULATION
@@ -144,19 +152,12 @@ async function calculatePackageCostInternal(body) {
     const hotelBreakdown = [];
 
     for (const selectedHotel of selectedHotels) {
-
       const {
-
         dayNo,
-
         hotelId,
-
         roomType,
-
         occupancy,
-
         nights = 1,
-
       } = selectedHotel;
 
       // ========================
@@ -164,23 +165,26 @@ async function calculatePackageCostInternal(body) {
       // ========================
 
       if (!hotelId) {
-
         throw new Error(
           `Hotel ID missing for day ${dayNo}`
         );
       }
 
       if (!roomType) {
-
         throw new Error(
           `Room type missing for day ${dayNo}`
         );
       }
 
       if (!occupancy) {
-
         throw new Error(
           `Occupancy missing for day ${dayNo}`
+        );
+      }
+
+      if (Number(nights) <= 0) {
+        throw new Error(
+          `Invalid nights for day ${dayNo}`
         );
       }
 
@@ -194,14 +198,12 @@ async function calculatePackageCostInternal(body) {
         );
 
       if (!hotel) {
-
         throw new Error(
           `Hotel not found for day ${dayNo}`
         );
       }
 
       if (!hotel.active) {
-
         throw new Error(
           `${hotel.hotelName} is inactive`
         );
@@ -215,7 +217,6 @@ async function calculatePackageCostInternal(body) {
         hotel.blackout?.start &&
         hotel.blackout?.end
       ) {
-
         const blackoutStart =
           new Date(
             hotel.blackout.start
@@ -231,7 +232,6 @@ async function calculatePackageCostInternal(body) {
           bookingEnd >= blackoutStart;
 
         if (overlaps) {
-
           throw new Error(
             `${hotel.hotelName} unavailable due to blackout`
           );
@@ -250,7 +250,6 @@ async function calculatePackageCostInternal(body) {
         );
 
       if (!room) {
-
         throw new Error(
           `${roomType} room not found in ${hotel.hotelName}`
         );
@@ -262,22 +261,26 @@ async function calculatePackageCostInternal(body) {
 
       let roomAvailable = false;
 
-      for (const duration of room.duration || []) {
-
+      for (
+        const duration of
+        room.duration || []
+      ) {
         const roomStart =
-          new Date(duration.startDate);
+          new Date(
+            duration.startDate
+          );
 
         const roomEnd =
-          new Date(duration.endDate);
+          new Date(
+            duration.endDate
+          );
 
         const valid =
           bookingStart >= roomStart &&
           bookingEnd <= roomEnd;
 
         if (valid) {
-
           roomAvailable = true;
-
           break;
         }
       }
@@ -286,7 +289,6 @@ async function calculatePackageCostInternal(body) {
         room.duration?.length > 0 &&
         !roomAvailable
       ) {
-
         throw new Error(
           `${roomType} unavailable in ${hotel.hotelName} for selected dates`
         );
@@ -308,7 +310,6 @@ async function calculatePackageCostInternal(body) {
         occupancyRate === undefined ||
         occupancyRate === null
       ) {
-
         throw new Error(
           `Occupancy ${occupancy} pricing missing in ${hotel.hotelName}`
         );
@@ -321,7 +322,7 @@ async function calculatePackageCostInternal(body) {
       const requiredRooms =
         Math.ceil(
           Number(totalTraveller) /
-          Number(occupancy)
+            Number(occupancy)
         );
 
       // ========================
@@ -332,7 +333,6 @@ async function calculatePackageCostInternal(body) {
         Number(room.inventory || 0) <
         requiredRooms
       ) {
-
         throw new Error(
           `Insufficient room inventory in ${hotel.hotelName}`
         );
@@ -345,7 +345,6 @@ async function calculatePackageCostInternal(body) {
       let childTotal = 0;
 
       if (childWithBed) {
-
         childTotal +=
           Number(
             room.child
@@ -354,7 +353,6 @@ async function calculatePackageCostInternal(body) {
       }
 
       if (childWithoutBed) {
-
         childTotal +=
           Number(
             room.child
@@ -378,11 +376,10 @@ async function calculatePackageCostInternal(body) {
       hotelCost += totalRoomPrice;
 
       // ========================
-      // DEBUG BREAKDOWN
+      // HOTEL BREAKDOWN
       // ========================
 
       hotelBreakdown.push({
-
         dayNo,
 
         hotelName:
@@ -418,20 +415,15 @@ async function calculatePackageCostInternal(body) {
     // VEHICLE CALCULATION
     // ========================
 
-    let vehicleFinal = 0;
-
-    let markup =
-      Number(priceMarkup) || 0;
+    let vehicleCost = 0;
 
     if (vehicleId) {
-
       const vehicleData =
         pkg.availableVehicle?.find(
           (v) =>
             String(v.vehicle_id) ===
             String(vehicleId)
         ) ||
-
         pkg.vehiclePrices?.find(
           (v) =>
             String(v.vehicle_id) ===
@@ -439,7 +431,6 @@ async function calculatePackageCostInternal(body) {
         );
 
       if (!vehicleData) {
-
         throw new Error(
           "Vehicle not available in this package"
         );
@@ -451,14 +442,12 @@ async function calculatePackageCostInternal(body) {
         );
 
       if (!vehicle) {
-
         throw new Error(
           "Vehicle not found"
         );
       }
 
       if (!vehicle.active) {
-
         throw new Error(
           "Selected vehicle inactive"
         );
@@ -472,7 +461,6 @@ async function calculatePackageCostInternal(body) {
         vehicle.blackout?.start &&
         vehicle.blackout?.end
       ) {
-
         const blackoutStart =
           new Date(
             vehicle.blackout.start
@@ -488,7 +476,6 @@ async function calculatePackageCostInternal(body) {
           bookingEnd >= blackoutStart;
 
         if (overlaps) {
-
           throw new Error(
             "Vehicle unavailable due to blackout"
           );
@@ -499,93 +486,184 @@ async function calculatePackageCostInternal(body) {
       // VEHICLE PRICE
       // ========================
 
-      const baseVehiclePrice =
+      /*
+       * IMPORTANT:
+       *
+       * No markup is applied to the vehicle
+       * here.
+       *
+       * The vehicle price is added to the
+       * hotel cost first.
+       *
+       * Package markup is then applied to
+       * the complete package subtotal.
+       */
+
+      vehicleCost =
         Number(
           vehicleData.price ||
           vehicle.rate ||
           0
         );
-
-      if (pkg.priceMarkup) {
-
-        markup =
-          Number(pkg.priceMarkup);
-      }
-
-      const markupAmount =
-        (baseVehiclePrice * markup) /
-        100;
-
-      vehicleFinal =
-        baseVehiclePrice +
-        markupAmount;
     }
 
     // ========================
-    // FINAL CALCULATION
+    // PACKAGE BASE COST
     // ========================
 
-    const packageInflation =
-  Number(pkg.inflatedPercentage || 0);
+    /*
+     * Hotel + Vehicle
+     */
 
-const subtotal =
-  hotelCost +
-  vehicleFinal;
+    const subtotal =
+      hotelCost +
+      vehicleCost;
 
-const inflatedAmount =
-  (subtotal * packageInflation) / 100;
+    // ========================
+    // PACKAGE MARKUP
+    // ========================
 
-const finalPackage =
-  subtotal +
-  inflatedAmount;
+    /*
+     * Apply priceMarkup to the ENTIRE
+     * holiday package cost.
+     */
+
+    const markupAmount =
+      (
+        subtotal *
+        packageMarkup
+      ) / 100;
+
+    const subtotalAfterMarkup =
+      subtotal +
+      markupAmount;
+
+    // ========================
+    // PACKAGE DISCOUNT
+    // ========================
+
+    /*
+     * inflatedPercentage is treated as
+     * a discount.
+     *
+     * Therefore it is SUBTRACTED.
+     */
+
+    const inflatedAmount =
+      (
+        subtotalAfterMarkup *
+        packageInflation
+      ) / 100;
+
+    // ========================
+    // FINAL PACKAGE PRICE
+    // ========================
+
+    const finalPackage =
+      subtotalAfterMarkup -
+      inflatedAmount;
+
+    // ========================
+    // DEBUG
+    // ========================
+
+    console.log(
+      "PACKAGE PRICE CALCULATION:",
+      {
+        hotelCost,
+        vehicleCost,
+
+        subtotal,
+
+        packageMarkup,
+        markupAmount,
+
+        subtotalAfterMarkup,
+
+        packageInflation,
+        inflatedAmount,
+
+        finalPackage,
+      }
+    );
 
     // ========================
     // RESPONSE
     // ========================
 
     return {
-
       success: true,
 
       finalPackage,
 
       breakdown: {
-  days,
-  totalTraveller,
+        days,
 
-  hotelCost,
+        totalTraveller,
 
-  vehicleFinal,
+        // ========================
+        // BASE COSTS
+        // ========================
 
-  subtotal,
+        hotelCost,
 
-  inflatedPercentage:
-    packageInflation,
+        vehicleCost,
 
-  inflatedAmount,
+        // Backward compatibility
+        vehicleFinal:
+          vehicleCost,
 
-  finalPackage,
+        // ========================
+        // PACKAGE SUBTOTAL
+        // ========================
 
-  markup,
+        subtotal,
 
-  hotelBreakdown,
+        // ========================
+        // PACKAGE MARKUP
+        // ========================
 
-  hotelPriceFound:
-    hotelCost > 0,
+        markup:
+          packageMarkup,
 
-  vehiclePriceFound:
-    vehicleFinal > 0,
-}
+        markupAmount,
+
+        subtotalAfterMarkup,
+
+        // ========================
+        // PACKAGE DISCOUNT
+        // ========================
+
+        inflatedPercentage:
+          packageInflation,
+
+        inflatedAmount,
+
+        // ========================
+        // FINAL PRICE
+        // ========================
+
+        finalPackage,
+
+        // ========================
+        // HOTEL BREAKDOWN
+        // ========================
+
+        hotelBreakdown,
+
+        hotelPriceFound:
+          hotelCost > 0,
+
+        vehiclePriceFound:
+          vehicleCost > 0,
+      },
     };
 
   } catch (err) {
-
     console.log(err);
 
     return {
-
       success: false,
-
       message: err.message,
     };
   }
@@ -595,21 +673,18 @@ const finalPackage =
 
 exports.calculatePackageCost =
   async (req, res) => {
-
     const result =
       await calculatePackageCostInternal(
         req.body
       );
 
     if (!result.success) {
-
       return res.status(400).json(
         result
       );
     }
 
     return res.json({
-
       success: true,
 
       message:

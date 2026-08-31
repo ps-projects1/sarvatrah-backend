@@ -293,8 +293,9 @@ const addHolidayPackage = async (req, res) => {
     const pricingSnapshot = await calculateRecommendedPackagePrice(
       itinerary,
       vehicles,
+      priceMarkup,
       inflatedPercentage
-    );
+    )
 
     // Create a new holiday package
     const newHolidayPackage = new HolidayPackage({
