@@ -527,6 +527,8 @@ const createBooking = async (req, res) => {
 
       // Save invoice URL
       booking.invoice = invoiceUrl;
+      booking.voucherPdf = voucherPdfUrl;
+      booking.itineraryPdf = ItineraryPdfUrl;
       await booking.save();
 
       // Send email
@@ -800,6 +802,8 @@ const costBreakup =
 
       // Save invoice URL
       booking.invoice = invoiceUrl;
+      booking.voucherPdf = voucherPdfUrl;
+      booking.itineraryPdf = ItineraryPdfUrl;
       await booking.save();
 
       // Send email

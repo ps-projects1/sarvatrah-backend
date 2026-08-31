@@ -86,6 +86,12 @@ const bookingSchema = new Mongoose.Schema(
     invoice: {
       type: String
     },
+    voucherPdf: {
+      type: String
+    },
+    itineraryPdf: {
+      type: String
+    },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     bookingDate: { type: Date, default: Date.now, required: true },
