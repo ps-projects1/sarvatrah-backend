@@ -23,7 +23,12 @@ async function calculatePackageCostInternal(body) {
       holidayPackageId,
       pilgrimagePackageId,
 
-      // VEHICLE
+      // VEHICLES
+      // NEW: multiple vehicles
+      vehicleIds = [],
+
+      // BACKWARD COMPATIBILITY:
+      // Old frontend can still send vehicleId.
       vehicleId,
 
       // HOTELS
@@ -55,9 +60,7 @@ async function calculatePackageCostInternal(body) {
       pilgrimagePackageId;
 
     if (!packageId) {
-      throw new Error(
-        "Package ID is required"
-      );
+      throw new Error("Package ID is required");
     }
 
     // ========================
@@ -67,21 +70,17 @@ async function calculatePackageCostInternal(body) {
     let pkg = null;
 
     if (holidayPackageId) {
-      pkg =
-        await HolidayPackage.findById(
-          holidayPackageId
-        );
+      pkg = await HolidayPackage.findById(
+        holidayPackageId
+      );
     } else {
-      pkg =
-        await Pilgrimage.findById(
-          pilgrimagePackageId
-        );
+      pkg = await Pilgrimage.findById(
+        pilgrimagePackageId
+      );
     }
 
     if (!pkg) {
-      throw new Error(
-        "Package not found"
-      );
+      throw new Error("Package not found");
     }
 
     // ========================
@@ -115,26 +114,34 @@ async function calculatePackageCostInternal(body) {
     }
 
     // ========================
+    // TRAVELLER VALIDATION
+    // ========================
+
+    const travellerCount =
+      Number(totalTraveller);
+
+    if (
+      !Number.isFinite(travellerCount) ||
+      travellerCount <= 0
+    ) {
+      throw new Error(
+        "Total traveller must be greater than 0"
+      );
+    }
+
+    // ========================
     // PACKAGE PRICING
     // ========================
 
     /*
      * IMPORTANT:
      *
-     * Both pricing percentages belong to
-     * the package itself.
+     * priceMarkup belongs to the package.
      *
-     * priceMarkup:
-     *     Added to the whole package cost.
+     * inflatedPercentage belongs to the package
+     * and is treated as a discount.
      *
-     * inflatedPercentage:
-     *     Treated as a discount and deducted
-     *     from the whole package cost.
-     *
-     * These values are read directly from
-     * the database package.
-     *
-     * The frontend does NOT control them.
+     * Frontend does NOT control these values.
      */
 
     const packageMarkup =
@@ -263,7 +270,7 @@ async function calculatePackageCostInternal(body) {
 
       for (
         const duration of
-        room.duration || []
+          room.duration || []
       ) {
         const roomStart =
           new Date(
@@ -321,7 +328,7 @@ async function calculatePackageCostInternal(body) {
 
       const requiredRooms =
         Math.ceil(
-          Number(totalTraveller) /
+          travellerCount /
             Number(occupancy)
         );
 
@@ -345,19 +352,17 @@ async function calculatePackageCostInternal(body) {
       let childTotal = 0;
 
       if (childWithBed) {
-        childTotal +=
-          Number(
-            room.child
-              ?.childWithBedPrice || 0
-          );
+        childTotal += Number(
+          room.child
+            ?.childWithBedPrice || 0
+        );
       }
 
       if (childWithoutBed) {
-        childTotal +=
-          Number(
-            room.child
-              ?.childWithoutBedPrice || 0
-          );
+        childTotal += Number(
+          room.child
+            ?.childWithoutBedPrice || 0
+        );
       }
 
       // ========================
@@ -381,6 +386,8 @@ async function calculatePackageCostInternal(body) {
 
       hotelBreakdown.push({
         dayNo,
+
+        hotelId,
 
         hotelName:
           hotel.hotelName,
@@ -415,41 +422,141 @@ async function calculatePackageCostInternal(body) {
     // VEHICLE CALCULATION
     // ========================
 
+    /*
+     * NEW VEHICLE FLOW
+     *
+     * Frontend sends:
+     *
+     * vehicleIds: [
+     *   "vehicleId1",
+     *   "vehicleId2",
+     *   "vehicleId3"
+     * ]
+     *
+     * Every selected vehicle is validated
+     * and its price is added.
+     */
+
+    let selectedVehicleIds = [];
+
+    // ========================
+    // NEW vehicleIds
+    // ========================
+
+    if (Array.isArray(vehicleIds)) {
+      selectedVehicleIds = vehicleIds
+        .filter(Boolean)
+        .map((id) => String(id));
+    }
+
+    // ========================
+    // BACKWARD COMPATIBILITY
+    // ========================
+
+    /*
+     * If old frontend sends:
+     *
+     * vehicleId: "123"
+     *
+     * convert it into:
+     *
+     * vehicleIds: ["123"]
+     */
+
+    if (
+      selectedVehicleIds.length === 0 &&
+      vehicleId
+    ) {
+      selectedVehicleIds = [
+        String(vehicleId),
+      ];
+    }
+
+    if (
+      selectedVehicleIds.length === 0
+    ) {
+      throw new Error(
+        "At least one vehicle is required"
+      );
+    }
+
+    // ========================
+    // VEHICLE TOTALS
+    // ========================
+
     let vehicleCost = 0;
 
-    if (vehicleId) {
+    let totalVehicleSeats = 0;
+
+    const vehicleBreakdown = [];
+
+    // Track quantity of duplicate vehicle IDs.
+    //
+    // This allows the frontend to send:
+    //
+    // vehicleIds: [
+    //   "sedanId",
+    //   "sedanId"
+    // ]
+    //
+    // if two cars of the same vehicle record
+    // are required.
+
+    const vehicleQuantityMap = {};
+
+    for (const id of selectedVehicleIds) {
+      vehicleQuantityMap[id] =
+        (vehicleQuantityMap[id] || 0) + 1;
+    }
+
+    // ========================
+    // PROCESS EACH VEHICLE
+    // ========================
+
+    for (
+      const selectedVehicleId of
+        selectedVehicleIds
+    ) {
+      // ========================
+      // FIND VEHICLE PRICE
+      // ========================
+
       const vehicleData =
         pkg.availableVehicle?.find(
           (v) =>
             String(v.vehicle_id) ===
-            String(vehicleId)
+            String(selectedVehicleId)
         ) ||
         pkg.vehiclePrices?.find(
           (v) =>
             String(v.vehicle_id) ===
-            String(vehicleId)
+            String(selectedVehicleId)
         );
 
       if (!vehicleData) {
         throw new Error(
-          "Vehicle not available in this package"
+          `Vehicle ${selectedVehicleId} is not available in this package`
         );
       }
 
+      // ========================
+      // FETCH VEHICLE
+      // ========================
+
       const vehicle =
         await vehicleCollection.findById(
-          vehicleId
+          selectedVehicleId
         );
 
       if (!vehicle) {
         throw new Error(
-          "Vehicle not found"
+          `Vehicle ${selectedVehicleId} not found`
         );
       }
 
       if (!vehicle.active) {
         throw new Error(
-          "Selected vehicle inactive"
+          `${vehicle.vehicleType || "Selected vehicle"} is inactive`
         );
       }
 
@@ -477,10 +584,57 @@ async function calculatePackageCostInternal(body) {
 
         if (overlaps) {
           throw new Error(
-            "Vehicle unavailable due to blackout"
+            `${vehicle.vehicleType || "Selected vehicle"} unavailable due to blackout`
           );
         }
       }
+
+      // ========================
+      // VEHICLE INVENTORY
+      // ========================
+
+      const requestedQuantity =
+        vehicleQuantityMap[
+          String(selectedVehicleId)
+        ] || 1;
+
+      const vehicleInventory =
+        Number(
+          vehicle.inventory || 0
+        );
+
+      /*
+       * Only validate inventory when an
+       * inventory value is actually configured.
+       *
+       * If inventory = 0, we don't reject it
+       * because existing records may use 0
+       * when inventory is not configured.
+       */
+
+      if (
+        vehicleInventory > 0 &&
+        requestedQuantity >
+          vehicleInventory
+      ) {
+        throw new Error(
+          `Insufficient inventory for ${vehicle.vehicleType || "selected vehicle"}. Requested ${requestedQuantity}, available ${vehicleInventory}`
+        );
+      }
+
+      // ========================
+      // VEHICLE SEAT CAPACITY
+      // ========================
+
+      const seatLimit =
+        Number(
+          vehicle.seatLimit ||
+          vehicleData.seatLimit ||
+          0
+        );
+
+      totalVehicleSeats +=
+        seatLimit;
 
       // ========================
       // VEHICLE PRICE
@@ -489,22 +643,106 @@ async function calculatePackageCostInternal(body) {
       /*
        * IMPORTANT:
        *
-       * No markup is applied to the vehicle
-       * here.
+       * No markup is applied here.
        *
-       * The vehicle price is added to the
-       * hotel cost first.
+       * No inflated/discount percentage
+       * is applied here.
        *
-       * Package markup is then applied to
-       * the complete package subtotal.
+       * Every vehicle's base price is added
+       * to vehicleCost first.
+       *
+       * Package markup is applied later to:
+       *
+       * HOTEL + ALL VEHICLES
        */
 
-      vehicleCost =
+      const baseVehiclePrice =
         Number(
           vehicleData.price ||
           vehicle.rate ||
           0
         );
+
+      vehicleCost +=
+        baseVehiclePrice;
+
+      // ========================
+      // VEHICLE BREAKDOWN
+      // ========================
+
+      vehicleBreakdown.push({
+        vehicleId:
+          selectedVehicleId,
+
+        vehicleType:
+          vehicleData.vehicleType ||
+          vehicle.vehicleType ||
+          "",
+
+        brandName:
+          vehicleData.brandName ||
+          vehicle.brandName ||
+          "",
+
+        modelName:
+          vehicleData.modelName ||
+          vehicle.modelName ||
+          "",
+
+        price:
+          baseVehiclePrice,
+
+        seatLimit,
+
+        inventory:
+          vehicleInventory,
+      });
+
+      console.log({
+        vehicleId:
+          selectedVehicleId,
+
+        vehicleType:
+          vehicleData.vehicleType ||
+          vehicle.vehicleType,
+
+        baseVehiclePrice,
+
+        seatLimit,
+
+        inventory:
+          vehicleInventory,
+      });
+    }
+
+    // ========================
+    // TOTAL VEHICLE CAPACITY
+    // ========================
+
+    /*
+     * Make sure the selected vehicles can
+     * actually accommodate all travellers.
+     *
+     * Example:
+     *
+     * 10 travellers
+     *
+     * Sedan = 4 seats
+     * Sedan = 4 seats
+     * Sedan = 4 seats
+     *
+     * Total = 12 seats
+     *
+     * Valid.
+     */
+
+    if (
+      totalVehicleSeats > 0 &&
+      totalVehicleSeats < travellerCount
+    ) {
+      throw new Error(
+        `Selected vehicles can accommodate only ${totalVehicleSeats} travellers, but ${travellerCount} travellers are booking`
+      );
     }
 
     // ========================
@@ -512,7 +750,7 @@ async function calculatePackageCostInternal(body) {
     // ========================
 
     /*
-     * Hotel + Vehicle
+     * Hotel + ALL selected vehicles
      */
 
     const subtotal =
@@ -524,8 +762,10 @@ async function calculatePackageCostInternal(body) {
     // ========================
 
     /*
-     * Apply priceMarkup to the ENTIRE
+     * Apply markup to the ENTIRE
      * holiday package cost.
+     *
+     * Hotel + all vehicles
      */
 
     const markupAmount =
@@ -543,10 +783,11 @@ async function calculatePackageCostInternal(body) {
     // ========================
 
     /*
-     * inflatedPercentage is treated as
-     * a discount.
+     * inflatedPercentage is treated
+     * as a discount.
      *
-     * Therefore it is SUBTRACTED.
+     * Therefore it is SUBTRACTED
+     * from the price after markup.
      */
 
     const inflatedAmount =
@@ -570,17 +811,26 @@ async function calculatePackageCostInternal(body) {
     console.log(
       "PACKAGE PRICE CALCULATION:",
       {
+        totalTraveller: travellerCount,
+
         hotelCost,
+
         vehicleCost,
+
+        selectedVehicleIds,
+
+        totalVehicleSeats,
 
         subtotal,
 
         packageMarkup,
+
         markupAmount,
 
         subtotalAfterMarkup,
 
         packageInflation,
+
         inflatedAmount,
 
         finalPackage,
@@ -599,7 +849,8 @@ async function calculatePackageCostInternal(body) {
       breakdown: {
         days,
 
-        totalTraveller,
+        totalTraveller:
+          travellerCount,
 
         // ========================
         // BASE COSTS
@@ -612,6 +863,20 @@ async function calculatePackageCostInternal(body) {
         // Backward compatibility
         vehicleFinal:
           vehicleCost,
+
+        // ========================
+        // VEHICLES
+        // ========================
+
+        vehicleIds:
+          selectedVehicleIds,
+
+        totalVehicles:
+          selectedVehicleIds.length,
+
+        totalVehicleSeats,
+
+        vehicleBreakdown,
 
         // ========================
         // PACKAGE SUBTOTAL
@@ -658,7 +923,6 @@ async function calculatePackageCostInternal(body) {
           vehicleCost > 0,
       },
     };
-
   } catch (err) {
     console.log(err);
 

@@ -261,6 +261,7 @@ const updatePilgrimage = async (req, res) => {
         existingPackage.itinerary,
 
         existingPackage.vehiclePrices,
+        existingPackage.priceMarkup,
 
         existingPackage.inflatedPercentage
       );

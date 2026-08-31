@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+
 <meta charset="UTF-8" />
+
 <style>
+
 body {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   background: #f3f6fb;
@@ -18,7 +22,10 @@ body {
   overflow: hidden;
 }
 
-/* HEADER */
+/* =========================
+   HEADER
+========================= */
+
 .header {
   background: #0a2540;
   color: #ffffff;
@@ -35,7 +42,11 @@ body {
   font-weight: 600;
 }
 
-/* CARD */
+
+/* =========================
+   CARD
+========================= */
+
 .card {
   padding: 20px 30px;
   border-bottom: 1px solid #e5e7eb;
@@ -48,7 +59,11 @@ body {
   color: #111827;
 }
 
-/* GRID */
+
+/* =========================
+   GRID
+========================= */
+
 .grid {
   display: flex;
   justify-content: space-between;
@@ -57,6 +72,11 @@ body {
 .col {
   width: 48%;
 }
+
+
+/* =========================
+   TEXT
+========================= */
 
 .label {
   font-size: 12px;
@@ -70,7 +90,11 @@ body {
   color: #111827;
 }
 
-/* TAG */
+
+/* =========================
+   TAG
+========================= */
+
 .tag {
   display: inline-block;
   background: #e0f2fe;
@@ -80,89 +104,230 @@ body {
   font-size: 12px;
 }
 
-/* FOOTER */
+
+/* =========================
+   VEHICLE
+========================= */
+
+.vehicle-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  background: #f9fafb;
+}
+
+.vehicle-number {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.vehicle-name {
+  font-size: 14px;
+  color: #111827;
+  font-weight: 600;
+}
+
+.vehicle-seats {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 5px;
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
 .footer {
   text-align: center;
   padding: 20px;
   font-size: 12px;
   color: #6b7280;
 }
+
 </style>
+
 </head>
+
 
 <body>
 
 <div class="container">
 
+
   <!-- HEADER -->
+
   <div class="header">
+
     <img src="{{logo}}" />
-    <h1>Booking Confirmation Voucher</h1>
+
+    <h1>
+      Booking Confirmation Voucher
+    </h1>
+
   </div>
+
 
   <!-- BOOKING DETAILS -->
+
   <div class="card">
-    <div class="section-title">Booking Details</div>
+
+    <div class="section-title">
+      Booking Details
+    </div>
+
 
     <div class="grid">
-      <div class="col">
-        <div class="label">Booking ID</div>
-        <div class="value">{{bookingId}}</div>
-
-        <div class="label">Travel Dates</div>
-        <div class="value">{{startDate}} - {{endDate}}</div>
-      </div>
 
       <div class="col">
-        <div class="label">Guests</div>
-        <div class="value">{{totalPeople}}</div>
 
-        <div class="label">Status</div>
-        <div class="value"><span class="tag">Confirmed</span></div>
+        <div class="label">
+          Booking ID
+        </div>
+
+        <div class="value">
+          {{bookingId}}
+        </div>
+
+
+        <div class="label">
+          Travel Dates
+        </div>
+
+        <div class="value">
+          {{startDate}} - {{endDate}}
+        </div>
+
       </div>
+
+
+      <div class="col">
+
+        <div class="label">
+          Guests
+        </div>
+
+        <div class="value">
+          {{totalPeople}}
+        </div>
+
+
+        <div class="label">
+          Status
+        </div>
+
+        <div class="value">
+
+          <span class="tag">
+            Confirmed
+          </span>
+
+        </div>
+
+      </div>
+
     </div>
+
   </div>
+
 
   <!-- LEAD TRAVELLER -->
-  <div class="card">
-    <div class="section-title">Lead Traveller</div>
 
-    <div class="value">{{leadTraveller}}</div>
-    <div class="label">Carry valid ID proof during travel</div>
+  <div class="card">
+
+    <div class="section-title">
+      Lead Traveller
+    </div>
+
+
+    <div class="value">
+      {{leadTraveller}}
+    </div>
+
+
+    <div class="label">
+      Carry valid ID proof during travel
+    </div>
+
   </div>
+
 
   <!-- HOTEL -->
+
   <div class="card">
-    <div class="section-title">Hotel Details</div>
 
-    <div class="label">Hotel Name</div>
-    <div class="value">{{hotelName}}</div>
+    <div class="section-title">
+      Hotel Details
+    </div>
 
-    <div class="label">Room Type</div>
-    <div class="value">{{roomType}}</div>
+
+    <div class="label">
+      Hotel Name
+    </div>
+
+    <div class="value">
+      {{hotelName}}
+    </div>
+
+
+    <div class="label">
+      Room Type
+    </div>
+
+    <div class="value">
+      {{roomType}}
+    </div>
+
   </div>
 
-  <!-- VEHICLE -->
-  <div class="card">
-    <div class="section-title">Transport</div>
 
-    <div class="value">{{vehicle}}</div>
+  <!-- VEHICLES -->
+
+  <div class="card">
+
+    <div class="section-title">
+      Transport
+    </div>
+
+    {{vehicle}}
+
   </div>
+
 
   <!-- DESTINATIONS -->
-  <div class="card">
-    <div class="section-title">Destinations</div>
 
-    <div class="value">{{destinations}}</div>
+  <div class="card">
+
+    <div class="section-title">
+      Destinations
+    </div>
+
+
+    <div class="value">
+      {{destinations}}
+    </div>
+
   </div>
+
 
   <!-- FOOTER -->
+
   <div class="footer">
-    Need help? Contact our support team<br/>
+
+    Need help? Contact our support team
+    <br/>
+
     © Sarvatrah Pvt Ltd
+
   </div>
+
 
 </div>
 
 </body>
+
 </html>

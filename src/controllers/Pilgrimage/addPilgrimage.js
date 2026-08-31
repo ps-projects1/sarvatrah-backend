@@ -318,6 +318,7 @@ const addPilrimagePackage = async (req, res) => {
       await calculateRecommendedPackagePrice(
         itinerary,
         vehicles,
+        priceMarkup,
         inflatedPercentage
       );
 
