@@ -10,7 +10,10 @@ const normalize = (str = "") =>
  * Calculate default/recommended package price for 1 traveller.
  *
  * IMPORTANT:
- * This follows the same pricing rules as calculatePackageCostInternal().
+ * This function is ONLY for calculating the default/recommended
+ * package price when the holiday package is created/updated.
+ *
+ * It is NOT the same as calculatePackageCostInternal().
  *
  * Default assumptions:
  * - 1 traveller
@@ -19,6 +22,13 @@ const normalize = (str = "") =>
  * - childWithoutBed = false
  * - nights = itinerary item's nights if available, otherwise 1
  * - one vehicle
+ *
+ * HOTEL SELECTION:
+ * - For every stay day, inspect every configured hotel.
+ * - For every hotel, find its cheapest valid room.
+ * - Room type is NOT restricted by recommendedRoomType.
+ * - Occupancy is ALWAYS 1.
+ * - Select the cheapest hotel + cheapest room combination for that day.
  */
 async function calculateRecommendedPackagePrice(
   itinerary = [],
@@ -26,7 +36,12 @@ async function calculateRecommendedPackagePrice(
   priceMarkup = 0,
   inflatedPercentage = 0
 ) {
+  // ============================================================
+  // DEFAULT PACKAGE ASSUMPTIONS
+  // ============================================================
+
   const travellerCount = 1;
+  const occupancy = 1;
 
   let hotelCost = 0;
   let vehicleCost = 0;
@@ -42,60 +57,69 @@ async function calculateRecommendedPackagePrice(
   // ============================================================
 
   for (const item of itinerary) {
+    // Only stay days contribute hotel cost.
     if (!item?.stay) {
       continue;
     }
 
-    if (!Array.isArray(item.hotels) || !item.hotels.length) {
-      continue;
+    if (!Array.isArray(item.hotels) || item.hotels.length === 0) {
+      throw new Error(
+        `No hotels configured for stay day ${item.dayNo ?? "unknown"}`
+      );
     }
+
+    // ------------------------------------------------------------
+    // Find cheapest valid room across all hotels for this day
+    // ------------------------------------------------------------
 
     let cheapestHotel = null;
     let cheapestRoom = null;
-    let cheapestOccupancyRate = Number.MAX_SAFE_INTEGER;
-
-    // ------------------------------------------------------------
-    // Find cheapest valid hotel for this itinerary day
-    // ------------------------------------------------------------
+    let cheapestOccupancyRate = Number.POSITIVE_INFINITY;
 
     for (const hotelOption of item.hotels) {
       if (!hotelOption?.hotel_id) {
         continue;
       }
 
-      const hotel = await hotelCollection.findById(
-        hotelOption.hotel_id
-      );
+      const hotel = await hotelCollection.findById(hotelOption.hotel_id);
 
       if (!hotel || !hotel.active) {
         continue;
       }
 
+      // ----------------------------------------------------------
+      // Find the CHEAPEST valid room in this hotel.
+      //
+      // We intentionally DO NOT use:
+      // - item.recommendedRoomType
+      // - item.recommendedOccupancy
+      //
+      // Occupancy is always 1 for the default package price.
+      // ----------------------------------------------------------
+
+      let hotelCheapestRoom = null;
+      let hotelCheapestRate = Number.POSITIVE_INFINITY;
+
       for (const room of hotel.rooms || []) {
         if (
           !Array.isArray(room.occupancyRates) ||
-          !room.occupancyRates.length
+          room.occupancyRates.length === 0
         ) {
           continue;
         }
 
-        // Same occupancy logic as calculatePackageCostInternal()
-        const occupancy = 1;
-
-        const occupancyIndex = occupancy - 1;
-
-        const occupancyRate =
-          room.occupancyRates?.[occupancyIndex];
+        // Occupancy 1 = first element in occupancyRates.
+        const occupancyRate = room.occupancyRates[0];
 
         if (
           occupancyRate === undefined ||
-          occupancyRate === null
+          occupancyRate === null ||
+          occupancyRate === ""
         ) {
           continue;
         }
 
-        const numericOccupancyRate =
-          Number(occupancyRate);
+        const numericOccupancyRate = Number(occupancyRate);
 
         if (
           !Number.isFinite(numericOccupancyRate) ||
@@ -104,16 +128,27 @@ async function calculateRecommendedPackagePrice(
           continue;
         }
 
-        if (
-          numericOccupancyRate <
-          cheapestOccupancyRate
-        ) {
-          cheapestOccupancyRate =
-            numericOccupancyRate;
-
-          cheapestHotel = hotel;
-          cheapestRoom = room;
+        // Keep the cheapest room INSIDE this hotel.
+        if (numericOccupancyRate < hotelCheapestRate) {
+          hotelCheapestRate = numericOccupancyRate;
+          hotelCheapestRoom = room;
         }
+      }
+
+      // No valid room in this hotel.
+      if (!hotelCheapestRoom) {
+        continue;
+      }
+
+      // ----------------------------------------------------------
+      // Compare this hotel's cheapest room against the cheapest
+      // room found in all other hotels for this day.
+      // ----------------------------------------------------------
+
+      if (hotelCheapestRate < cheapestOccupancyRate) {
+        cheapestOccupancyRate = hotelCheapestRate;
+        cheapestHotel = hotel;
+        cheapestRoom = hotelCheapestRoom;
       }
     }
 
@@ -121,37 +156,31 @@ async function calculateRecommendedPackagePrice(
     // No valid hotel found
     // ------------------------------------------------------------
 
-    if (
-      !cheapestHotel ||
-      !cheapestRoom
-    ) {
-      continue;
+    if (!cheapestHotel || !cheapestRoom) {
+      throw new Error(
+        `No valid hotel room found for stay day ${item.dayNo ?? "unknown"}`
+      );
     }
 
     // ------------------------------------------------------------
     // Default room calculation
-    // Same logic as calculatePackageCostInternal()
     // ------------------------------------------------------------
 
-    const occupancy = 1;
+    const requiredRooms = Math.ceil(travellerCount / occupancy);
 
-    const requiredRooms = Math.ceil(
-      travellerCount / occupancy
-    );
+    const nights = Number(item.nights || 1);
 
-    const nights = Number(
-      item.nights || 1
-    );
-
-    if (nights <= 0) {
-      continue;
+    if (!Number.isFinite(nights) || nights <= 0) {
+      throw new Error(
+        `Invalid nights value for stay day ${item.dayNo ?? "unknown"}`
+      );
     }
 
+    // Default package calculation has no children.
     const childTotal = 0;
 
     const perNightRoomPrice =
-      cheapestOccupancyRate +
-      childTotal;
+      cheapestOccupancyRate + childTotal;
 
     const totalRoomPrice =
       perNightRoomPrice *
@@ -180,19 +209,15 @@ async function calculateRecommendedPackagePrice(
     hotelBreakdown.push({
       dayNo: item.dayNo,
 
-      hotelId:
-        cheapestHotel._id,
+      hotelId: cheapestHotel._id,
 
-      hotelName:
-        cheapestHotel.hotelName,
+      hotelName: cheapestHotel.hotelName,
 
-      roomType:
-        cheapestRoom.roomType,
+      roomType: cheapestRoom.roomType,
 
       occupancy,
 
-      occupancyRate:
-        cheapestOccupancyRate,
+      occupancyRate: cheapestOccupancyRate,
 
       requiredRooms,
 
@@ -208,10 +233,7 @@ async function calculateRecommendedPackagePrice(
   // VEHICLE CALCULATION
   // ============================================================
 
-  if (
-    Array.isArray(vehicles) &&
-    vehicles.length
-  ) {
+  if (Array.isArray(vehicles) && vehicles.length > 0) {
     const validVehicles = [];
 
     for (const vehicleData of vehicles) {
@@ -219,23 +241,21 @@ async function calculateRecommendedPackagePrice(
         continue;
       }
 
-      const vehicle =
-        await vehicleCollection.findById(
-          vehicleData.vehicle_id
-        );
+      const vehicle = await vehicleCollection.findById(
+        vehicleData.vehicle_id
+      );
 
       if (!vehicle || !vehicle.active) {
         continue;
       }
 
       const seatLimit = Number(
-        vehicle.seatLimit ||
-        vehicleData.seatLimit ||
-        0
+        vehicle.seatLimit ??
+          vehicleData.seatLimit ??
+          0
       );
 
-      // For default package price:
-      // 1 traveller must fit in the vehicle.
+      // One traveller must fit in the vehicle.
       if (
         seatLimit > 0 &&
         seatLimit < travellerCount
@@ -243,12 +263,11 @@ async function calculateRecommendedPackagePrice(
         continue;
       }
 
-      const baseVehiclePrice =
-        Number(
-          vehicleData.price ??
+      const baseVehiclePrice = Number(
+        vehicleData.price ??
           vehicle.rate ??
           0
-        );
+      );
 
       if (
         !Number.isFinite(baseVehiclePrice) ||
@@ -275,8 +294,7 @@ async function calculateRecommendedPackagePrice(
         b.baseVehiclePrice
     );
 
-    const cheapestVehicle =
-      validVehicles[0];
+    const cheapestVehicle = validVehicles[0];
 
     if (cheapestVehicle) {
       vehicleCost =
@@ -298,16 +316,14 @@ async function calculateRecommendedPackagePrice(
           cheapestVehicle.vehicleData.modelName ||
           cheapestVehicle.vehicle.modelName,
 
-        price:
-          vehicleCost,
+        price: vehicleCost,
 
         seatLimit:
           cheapestVehicle.seatLimit,
 
-        inventory:
-          Number(
-            cheapestVehicle.vehicle.inventory || 0
-          ),
+        inventory: Number(
+          cheapestVehicle.vehicle.inventory || 0
+        ),
       };
 
       vehicleBreakdown.push({
@@ -329,16 +345,14 @@ async function calculateRecommendedPackagePrice(
           cheapestVehicle.vehicle.modelName ||
           "",
 
-        price:
-          vehicleCost,
+        price: vehicleCost,
 
         seatLimit:
           cheapestVehicle.seatLimit,
 
-        inventory:
-          Number(
-            cheapestVehicle.vehicle.inventory || 0
-          ),
+        inventory: Number(
+          cheapestVehicle.vehicle.inventory || 0
+        ),
       });
     }
   }
@@ -367,16 +381,18 @@ async function calculateRecommendedPackagePrice(
 
   // ============================================================
   // PACKAGE DISCOUNT
+  //
+  // NOTE:
+  // Despite the existing field name `inflatedPercentage`,
+  // the current business logic uses this percentage as a
+  // discount from subtotalAfterMarkup.
   // ============================================================
 
   const packageInflation =
     Number(inflatedPercentage || 0);
 
   const inflatedAmount =
-    (
-      subtotalAfterMarkup *
-      packageInflation
-    ) / 100;
+    (subtotalAfterMarkup * packageInflation) / 100;
 
   const finalCost =
     subtotalAfterMarkup -
@@ -388,11 +404,13 @@ async function calculateRecommendedPackagePrice(
 
   return {
     hotelCost,
+
     vehicleCost,
 
     subtotal,
 
     markup,
+
     markupAmount,
 
     subtotalAfterMarkup,
@@ -405,9 +423,11 @@ async function calculateRecommendedPackagePrice(
     finalCost,
 
     selectedHotels,
+
     selectedVehicle,
 
     hotelBreakdown,
+
     vehicleBreakdown,
 
     totalTraveller:
