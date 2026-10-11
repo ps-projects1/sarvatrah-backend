@@ -216,17 +216,27 @@ const addHolidayPackage = async (req, res) => {
       }
     }
     // Validate hotel selections from admin
+    // Validate itinerary locations for recommended pricing
     for (const item of itinerary) {
-      if (
-        item.stay &&
-        (
-          !item.hotels ||
-          !item.hotels.length
-        )
-      ) {
+      if (!item.stay) {
+        continue;
+      }
+
+      const cityName =
+        typeof item.city === "object"
+          ? item.city?.name
+          : item.city;
+
+      const stateName =
+        typeof item.state === "object"
+          ? item.state?.name
+          : item.state;
+
+      if (!cityName || !stateName) {
         return res.status(400).json(
           generateErrorResponse(
-            `At least one hotel is required for day ${item.dayNo}`
+            "Validation Error",
+            `City and state are required for stay day ${item.dayNo}`
           )
         );
       }

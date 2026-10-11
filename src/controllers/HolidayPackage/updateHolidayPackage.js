@@ -262,6 +262,95 @@ const updateHolidayPackage = async (req, res) => {
       ];
     }
 
+    // ===================================
+// VEHICLE IMAGE UPLOAD TO SUPABASE
+// ===================================
+
+const vehicleImageFile = req.files?.vehicleImages?.[0];
+const vehicleImageIndex = Number(req.body.vehicleImageIndex);
+
+if (vehicleImageFile) {
+  // Validate the vehicle index.
+  if (
+    !Number.isInteger(vehicleImageIndex) ||
+    vehicleImageIndex < 0 ||
+    !Array.isArray(parsedVehicles) ||
+    vehicleImageIndex >= parsedVehicles.length
+  ) {
+    return res.status(400).json(
+      generateErrorResponse(
+        "Validation Error",
+        "Invalid vehicleImageIndex"
+      )
+    );
+  }
+
+  const selectedVehicle = parsedVehicles[vehicleImageIndex];
+
+  if (!selectedVehicle?.vehicle_id) {
+    return res.status(400).json(
+      generateErrorResponse(
+        "Validation Error",
+        `No vehicle ID found at index ${vehicleImageIndex}`
+      )
+    );
+  }
+
+  // Find the actual vehicle document.
+  const vehicleDoc = await vehicleCollection.findById(
+    selectedVehicle.vehicle_id
+  );
+
+  if (!vehicleDoc) {
+    return res.status(404).json(
+      generateErrorResponse(
+        "Vehicle Not Found",
+        `Vehicle ${selectedVehicle.vehicle_id} does not exist`
+      )
+    );
+  }
+
+  // Upload to Supabase.
+  // Do not silently fall back to a local URL if the upload fails.
+  const vehicleImageUrl = await uploadToSupabase(
+    vehicleImageFile.path,
+    vehicleImageFile.originalname,
+    "vehicles"
+  );
+
+  if (
+    typeof vehicleImageUrl !== "string" ||
+    !vehicleImageUrl.startsWith("https://")
+  ) {
+    throw new Error(
+      "Vehicle image upload did not return a valid Supabase URL"
+    );
+  }
+
+  // Save the Supabase URL to the vehicle record.
+  vehicleDoc.img = [
+    ...(vehicleDoc.img || []),
+    vehicleImageUrl,
+  ];
+
+  await vehicleDoc.save();
+
+  console.log("Vehicle image uploaded successfully:", {
+    vehicleId: vehicleDoc._id,
+    imageUrl: vehicleImageUrl,
+    vehicleImageIndex,
+  });
+
+  writeLog({
+    type: "Vehicle image uploaded to Supabase",
+    body: JSON.stringify({
+      vehicleId: vehicleDoc._id,
+      imageUrl: vehicleImageUrl,
+      vehicleImageIndex,
+    }),
+  });
+}
+
     // Update fields (only if provided)
     if (objectType !== undefined) existingPackage.objectType = objectType;
     if (packageName !== undefined) existingPackage.packageName = packageName;
