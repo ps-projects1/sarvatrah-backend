@@ -328,12 +328,18 @@ if (vehicleImageFile) {
   }
 
   // Save the Supabase URL to the vehicle record.
-  vehicleDoc.img = [
-    ...(vehicleDoc.img || []),
-    vehicleImageUrl,
-  ];
+  const vehicleImageObject = {
+  filename: vehicleImageFile.filename || vehicleImageFile.originalname,
+  path: vehicleImageUrl,
+  mimetype: vehicleImageFile.mimetype,
+};
 
-  await vehicleDoc.save();
+vehicleDoc.img = [
+  ...(vehicleDoc.img || []),
+  vehicleImageObject,
+];
+
+await vehicleDoc.save();
 
   console.log("Vehicle image uploaded successfully:", {
     vehicleId: vehicleDoc._id,
