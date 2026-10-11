@@ -1068,6 +1068,7 @@ route.put(
   uploads.fields([
     { name: "themeImage", maxCount: 1 },
     { name: "files", maxCount: 10 },
+    { name: "vehicleImages", maxCount: 20 },
   ]),
   updateHolidayPackage
 );
