@@ -97,14 +97,14 @@ const updateHolidayPackage = async (req, res) => {
     }
 
     console.log(
-  "parsedVehicles AFTER PARSE:",
-  JSON.stringify(parsedVehicles, null, 2)
-);
+      "parsedVehicles AFTER PARSE:",
+      JSON.stringify(parsedVehicles, null, 2)
+    );
 
-writeLog({
-  type: "parsedVehicles AFTER PARSE",
-  body: JSON.stringify(parsedVehicles, null, 2),
-});
+    writeLog({
+      type: "parsedVehicles AFTER PARSE",
+      body: JSON.stringify(parsedVehicles, null, 2),
+    });
 
     // Validate vehicles if provided
     if (parsedVehicles && Array.isArray(parsedVehicles)) {
@@ -125,152 +125,142 @@ writeLog({
       }
     }
 
-    // Validate hotel selections from itinerary if provided
+    // ============================================================
+    // VALIDATE ITINERARY FOR RECOMMENDED PRICING
+    // ============================================================
+
+    // Hotels no longer need to be configured in item.hotels.
+    // Recommended pricing searches the Hotel collection by city
+    // and state instead.
+    //
+    // Keep the existing stay-day behavior. Only validate city
+    // and state when a new itinerary is provided.
+
     if (parsedItinerary && Array.isArray(parsedItinerary)) {
-
       for (const item of parsedItinerary) {
-
         if (!item.stay) {
           continue;
         }
 
+        const city =
+          typeof item.city === "object"
+            ? item.city?.name
+            : item.city;
+
+        const state =
+          typeof item.state === "object"
+            ? item.state?.name
+            : item.state;
+
         if (
-          !Array.isArray(item.hotels) ||
-          !item.hotels.length
+          !String(city || "").trim() ||
+          !String(state || "").trim()
         ) {
           return res.status(400).json(
             generateErrorResponse(
               "Validation Error",
-              `At least one hotel is required for day ${item.dayNo}`
+              `City and state are required for stay day ${item.dayNo ?? "unknown"}`
             )
           );
-        }
-
-        for (const hotelOption of item.hotels) {
-
-          const hotel =
-            await hotelCollection.findById(
-              hotelOption.hotel_id
-            );
-
-          if (!hotel) {
-
-            return res.status(400).json(
-              generateErrorResponse(
-                "Validation Error",
-                `Hotel not found for day ${item.dayNo}`
-              )
-            );
-          }
-
-          if (!hotel.active) {
-
-            return res.status(400).json(
-              generateErrorResponse(
-                "Validation Error",
-                `Hotel ${hotel.hotelName} is inactive`
-              )
-            );
-          }
         }
       }
     }
 
     // Handle file uploads
     // ===================================
-// HANDLE FILES
-// ===================================
+    // HANDLE FILES
+    // ===================================
 
-const themeFile =
-  req.files?.themeImage?.[0];
+    const themeFile =
+      req.files?.themeImage?.[0];
 
-const additionalFiles =
-  req.files?.files || [];
+    const additionalFiles =
+      req.files?.files || [];
 
-const convertPath = path =>
-  path
-    .replace(/\\/g, "/")
-    .replace("public/", "");
+    const convertPath = path =>
+      path
+        .replace(/\\/g, "/")
+        .replace("public/", "");
 
-// THEME IMAGE
+    // THEME IMAGE
 
-if (themeFile) {
+    if (themeFile) {
 
-  let themeImgPath;
+      let themeImgPath;
 
-  try {
+      try {
 
-    themeImgPath =
-      await uploadToSupabase(
-        themeFile.path,
-        themeFile.originalname,
-        "holiday/theme"
-      );
+        themeImgPath =
+          await uploadToSupabase(
+            themeFile.path,
+            themeFile.originalname,
+            "holiday/theme"
+          );
 
-  } catch (err) {
+      } catch (err) {
 
-    themeImgPath =
-      `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`;
-  }
+        themeImgPath =
+          `https://sarvatrah-backend.onrender.com/public/${convertPath(themeFile.path)}`;
+      }
 
-  existingPackage.themeImg = {
+      existingPackage.themeImg = {
 
-    filename:
-      themeFile.filename,
+        filename:
+          themeFile.filename,
 
-    path:
-      themeImgPath,
+        path:
+          themeImgPath,
 
-    mimetype:
-      themeFile.mimetype,
-  };
-}
-
-// GALLERY IMAGES
-
-if (additionalFiles.length) {
-
-  const uploadedImages = [];
-
-  for (const file of additionalFiles) {
-
-    let fileUrl;
-
-    try {
-
-      fileUrl =
-        await uploadToSupabase(
-          file.path,
-          file.originalname,
-          "holiday/gallery"
-        );
-
-    } catch (err) {
-
-      fileUrl =
-        `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
+        mimetype:
+          themeFile.mimetype,
+      };
     }
 
-    uploadedImages.push({
+    // GALLERY IMAGES
 
-      filename:
-        file.filename,
+    if (additionalFiles.length) {
 
-      path:
-        fileUrl,
+      const uploadedImages = [];
 
-      mimetype:
-        file.mimetype,
-    });
-  }
+      for (const file of additionalFiles) {
 
-  existingPackage.images = [
+        let fileUrl;
 
-    ...(existingPackage.images || []),
+        try {
 
-    ...uploadedImages,
-  ];
-}
+          fileUrl =
+            await uploadToSupabase(
+              file.path,
+              file.originalname,
+              "holiday/gallery"
+            );
+
+        } catch (err) {
+
+          fileUrl =
+            `https://sarvatrah-backend.onrender.com/public/${convertPath(file.path)}`;
+        }
+
+        uploadedImages.push({
+
+          filename:
+            file.filename,
+
+          path:
+            fileUrl,
+
+          mimetype:
+            file.mimetype,
+        });
+      }
+
+      existingPackage.images = [
+
+        ...(existingPackage.images || []),
+
+        ...uploadedImages,
+      ];
+    }
 
     // Update fields (only if provided)
     if (objectType !== undefined) existingPackage.objectType = objectType;
@@ -310,15 +300,15 @@ if (additionalFiles.length) {
     }
 
     if (
-  Array.isArray(parsedVehicles)
-) {
+      Array.isArray(parsedVehicles)
+    ) {
 
-  existingPackage.vehiclePrices =
-    parsedVehicles;
+      existingPackage.vehiclePrices =
+        parsedVehicles;
 
-  existingPackage.availableVehicle =
-    parsedVehicles;
-}
+      existingPackage.availableVehicle =
+        parsedVehicles;
+    }
 
     // ===================================
     // RECALCULATE PACKAGE COST
@@ -330,9 +320,9 @@ if (additionalFiles.length) {
     );
 
     writeLog({
-  type: "parsedVehicles",
-  body: JSON.stringify(parsedVehicles, null, 2),
-});
+      type: "parsedVehicles",
+      body: JSON.stringify(parsedVehicles, null, 2),
+    });
 
     console.log(
       "vehiclePrices before calc:",
@@ -344,13 +334,13 @@ if (additionalFiles.length) {
     );
 
     writeLog({
-  type: "vehiclePrices before calc",
-  body: JSON.stringify(
+      type: "vehiclePrices before calc",
+      body: JSON.stringify(
         existingPackage.vehiclePrices,
         null,
         2
       )
-});
+    });
 
     console.log(
       "itinerary before calc:",
@@ -362,37 +352,37 @@ if (additionalFiles.length) {
     );
 
     writeLog({
-  type: "itinerary before calc",
-  body: JSON.stringify(
+      type: "itinerary before calc",
+      body: JSON.stringify(
         existingPackage.itinerary,
         null,
         2
       )
-});
+    });
 
     console.log(
-  "recommendedPricing calc input:",
-  {
-    hotels:
-      existingPackage.itinerary,
-    vehicles:
-      existingPackage.vehiclePrices,
-    inflation:
-      existingPackage.inflatedPercentage,
-  }
-);
+      "recommendedPricing calc input:",
+      {
+        hotels:
+          existingPackage.itinerary,
+        vehicles:
+          existingPackage.vehiclePrices,
+        inflation:
+          existingPackage.inflatedPercentage,
+      }
+    );
 
-writeLog({
-  type: "recommendedPricing calc input:",
-  body: {
-    hotels:
-      existingPackage.itinerary,
-    vehicles:
-      existingPackage.vehiclePrices,
-    inflation:
-      existingPackage.inflatedPercentage,
-  }
-});
+    writeLog({
+      type: "recommendedPricing calc input:",
+      body: {
+        hotels:
+          existingPackage.itinerary,
+        vehicles:
+          existingPackage.vehiclePrices,
+        inflation:
+          existingPackage.inflatedPercentage,
+      }
+    });
 
     const pricing =
       await calculateRecommendedPackagePrice(
