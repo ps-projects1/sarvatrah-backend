@@ -215,6 +215,120 @@ const addHolidayPackage = async (req, res) => {
           );
       }
     }
+
+
+  // -----------------------------
+  // Upload vehicle images to Supabase
+  // -----------------------------
+  const vehicleImageFiles = req.files?.vehicleImages || [];
+  const rawVehicleImageIndexes = req.body.vehicleImageIndex;
+
+  if (vehicleImageFiles.length > 0) {
+    let vehicleImageIndexes = [];
+
+    try {
+      if (Array.isArray(rawVehicleImageIndexes)) {
+        vehicleImageIndexes = rawVehicleImageIndexes.flatMap((value) => {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        });
+      } else if (typeof rawVehicleImageIndexes === "string") {
+        const parsed = JSON.parse(rawVehicleImageIndexes);
+        vehicleImageIndexes = Array.isArray(parsed) ? parsed : [parsed];
+      } else if (rawVehicleImageIndexes !== undefined) {
+        vehicleImageIndexes = [rawVehicleImageIndexes];
+      }
+    } catch {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          "Invalid vehicleImageIndex. Provide a numeric index or a JSON array of indexes."
+        )
+      );
+    }
+
+    if (vehicleImageIndexes.length !== vehicleImageFiles.length) {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          "Provide one vehicleImageIndex for each vehicleImages file."
+        )
+      );
+    }
+
+    for (let i = 0; i < vehicleImageFiles.length; i++) {
+      const file = vehicleImageFiles[i];
+      const vehicleIndex = Number(vehicleImageIndexes[i]);
+
+      if (
+        !Number.isInteger(vehicleIndex) ||
+        vehicleIndex < 0 ||
+        vehicleIndex >= vehicles.length
+      ) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `Invalid vehicleImageIndex: ${vehicleImageIndexes[i]}`
+          )
+        );
+      }
+
+      const selectedVehicle = vehicles[vehicleIndex];
+
+      if (!selectedVehicle?.vehicle_id) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `No vehicle_id found for vehicle index ${vehicleIndex}`
+          )
+        );
+      }
+
+      const vehicleDoc = await vehicleCollection.findById(
+        selectedVehicle.vehicle_id
+      );
+
+      if (!vehicleDoc) {
+        return res.status(404).json(
+          generateErrorResponse(
+            "Vehicle Not Found",
+            `Vehicle with ID ${selectedVehicle.vehicle_id} does not exist`
+          )
+        );
+      }
+
+      const imageUrl = await uploadToSupabase(
+        file.path,
+        file.originalname,
+        "vehicles"
+      );
+
+      if (typeof imageUrl !== "string" || !imageUrl.startsWith("https://")) {
+        throw new Error(
+          `Supabase upload failed for vehicle index ${vehicleIndex}`
+        );
+      }
+
+      // img must be an array of objects, matching your vehicle schema.
+      vehicleDoc.img = vehicleDoc.img || [];
+
+      vehicleDoc.img.push({
+        filename: file.originalname,
+        path: imageUrl,
+        mimetype: file.mimetype,
+      });
+
+      await vehicleDoc.save();
+
+      console.log("Vehicle image saved:", {
+        vehicleId: vehicleDoc._id,
+        vehicleIndex,
+        imageUrl,
+      });
+    }
+  }
+
+  
     // Validate hotel selections from admin
     // Validate itinerary locations for recommended pricing
     for (const item of itinerary) {

@@ -21,6 +21,7 @@ route.post(
   upload.fields([
     { name: "themeImg", maxCount: 1 },
     { name: "packageImages", maxCount: 10 },
+    { name: "vehicleImages", maxCount: 20 },
   ]),
   limitIfFiles(uploadLimiter), // only limit if files exist
   addPilrimagePackage
@@ -32,6 +33,7 @@ route.put(
   upload.fields([
     { name: "themeImg", maxCount: 1 },
     { name: "packageImages", maxCount: 10 },
+    { name: "vehicleImages", maxCount: 20 },
   ]),
   limitIfFiles(uploadLimiter),
   updatePilgrimagePackage

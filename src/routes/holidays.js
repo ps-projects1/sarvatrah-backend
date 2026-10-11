@@ -1038,6 +1038,129 @@ route.post(
         inventory: 0
       };
 
+
+/**
+ * Upload vehicle images to Supabase and save their URLs
+ * in the corresponding vehicle documents.
+ *
+ * Supports:
+ * - One image: vehicleImageIndex = "3"
+ * - Multiple images: vehicleImageIndex = "[0,2,3]"
+ */
+const vehicleImageFiles = req.files?.vehicleImages || [];
+
+if (vehicleImageFiles.length > 0) {
+  if (!Array.isArray(availableVehicles) || availableVehicles.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "availableVehicle is required when uploading vehicle images",
+    });
+  }
+
+  // Parse vehicleImageIndex values.
+  let rawIndexes = req.body.vehicleImageIndex;
+  let vehicleIndexes = [];
+
+  try {
+    if (Array.isArray(rawIndexes)) {
+      vehicleIndexes = rawIndexes.flatMap((value) => {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          return [value];
+        }
+      });
+    } else if (typeof rawIndexes === "string") {
+      const parsed = JSON.parse(rawIndexes);
+      vehicleIndexes = Array.isArray(parsed) ? parsed : [parsed];
+    } else if (rawIndexes !== undefined) {
+      vehicleIndexes = [rawIndexes];
+    }
+  } catch {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid vehicleImageIndex. Use a number or JSON array of indexes.",
+    });
+  }
+
+  if (vehicleIndexes.length !== vehicleImageFiles.length) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Provide one vehicleImageIndex for each vehicleImages file.",
+    });
+  }
+
+  for (let i = 0; i < vehicleImageFiles.length; i++) {
+    const file = vehicleImageFiles[i];
+    const vehicleIndex = Number(vehicleIndexes[i]);
+
+    if (
+      !Number.isInteger(vehicleIndex) ||
+      vehicleIndex < 0 ||
+      vehicleIndex >= availableVehicles.length
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid vehicleImageIndex: ${vehicleIndexes[i]}`,
+      });
+    }
+
+    const selectedVehicle = availableVehicles[vehicleIndex];
+
+    if (!selectedVehicle?.vehicle_id) {
+      return res.status(400).json({
+        success: false,
+        message: `No vehicle_id found at availableVehicle index ${vehicleIndex}`,
+      });
+    }
+
+    const vehicleDoc = await vehicleCollection.findById(
+      selectedVehicle.vehicle_id
+    );
+
+    if (!vehicleDoc) {
+      return res.status(404).json({
+        success: false,
+        message: `Vehicle not found: ${selectedVehicle.vehicle_id}`,
+      });
+    }
+
+    // Upload the image to Supabase.
+    const imageUrl = await uploadToSupabase(
+      file.path,
+      file.originalname,
+      "vehicles"
+    );
+
+    if (typeof imageUrl !== "string" || !imageUrl.startsWith("https://")) {
+      throw new Error(
+        `Supabase upload failed for vehicle at index ${vehicleIndex}`
+      );
+    }
+
+    // Store image metadata and the public Supabase URL.
+    // This assumes vehicleSchema.img is an array of objects.
+    vehicleDoc.img = vehicleDoc.img || [];
+
+    vehicleDoc.img.push({
+      filename: file.originalname,
+      path: imageUrl,
+      mimetype: file.mimetype,
+    });
+
+    await vehicleDoc.save();
+
+    console.log("Vehicle image saved:", {
+      vehicleId: vehicleDoc._id,
+      vehicleIndex,
+      imageUrl,
+    });
+  }
+}
+
+
       const createdPackage = await HolidayPackage.create(packageObj);
 
       return res.status(200).json({

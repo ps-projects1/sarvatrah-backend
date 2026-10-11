@@ -107,63 +107,173 @@ const updatePilgrimage = async (req, res) => {
       }
     }
 
-    // Validate hotel selections from itinerary if provided
-    if (parsedItinerary && Array.isArray(parsedItinerary)) {
-      for (const item of parsedItinerary) {
-        for (const item of parsedItinerary) {
 
-          if (!item.stay) {
-            continue;
-          }
+  // -----------------------------
+  // Upload vehicle images to Supabase
+  // -----------------------------
+  const vehicleImageFiles = req.files?.vehicleImages || [];
+  const rawVehicleImageIndexes = req.body.vehicleImageIndex;
 
-          const resolvedHotelId =
-            item.hotel_id ||
-            (
-              item.hotels &&
-                item.hotels.length
-                ? item.hotels[0].hotel_id
-                : null
-            );
+  if (vehicleImageFiles.length > 0) {
+    let vehicleImageIndexes = [];
 
-          if (!resolvedHotelId) {
+    try {
+      if (Array.isArray(rawVehicleImageIndexes)) {
+        vehicleImageIndexes = rawVehicleImageIndexes.flatMap((value) => {
+          const parsed =
+            typeof value === "string" ? JSON.parse(value) : value;
 
-            return res.status(400).json(
-              generateErrorResponse(
-                "Validation Error",
-                `Hotel is required for day ${item.dayNo}`
-              )
-            );
-          }
-
-          const hotel =
-            await hotelCollection.findById(
-              resolvedHotelId
-            );
-
-          if (!hotel) {
-
-            return res.status(400).json(
-              generateErrorResponse(
-                "Validation Error",
-                `Hotel not found for day ${item.dayNo}`
-              )
-            );
-          }
-
-          if (!hotel.active) {
-
-            return res.status(400).json(
-              generateErrorResponse(
-                "Validation Error",
-                `Hotel "${hotel.hotelName}" is inactive`
-              )
-            );
-          }
-
-          item.hotel_id = resolvedHotelId;
-        }
+          return Array.isArray(parsed) ? parsed : [parsed];
+        });
+      } else if (typeof rawVehicleImageIndexes === "string") {
+        const parsed = JSON.parse(rawVehicleImageIndexes);
+        vehicleImageIndexes = Array.isArray(parsed) ? parsed : [parsed];
+      } else if (rawVehicleImageIndexes !== undefined) {
+        vehicleImageIndexes = [rawVehicleImageIndexes];
       }
+    } catch {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          "Invalid vehicleImageIndex. Provide a numeric index or a JSON array of indexes."
+        )
+      );
     }
+
+    if (vehicleImageIndexes.length !== vehicleImageFiles.length) {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          "Provide one vehicleImageIndex for each vehicleImages file."
+        )
+      );
+    }
+
+    const vehiclesForImageMapping =
+      parsedVehicles !== undefined
+        ? parsedVehicles
+        : existingPackage.vehiclePrices || [];
+
+    for (let i = 0; i < vehicleImageFiles.length; i++) {
+      const file = vehicleImageFiles[i];
+      const vehicleIndex = Number(vehicleImageIndexes[i]);
+
+      if (
+        !Number.isInteger(vehicleIndex) ||
+        vehicleIndex < 0 ||
+        vehicleIndex >= vehiclesForImageMapping.length
+      ) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `Invalid vehicleImageIndex: ${vehicleImageIndexes[i]}`
+          )
+        );
+      }
+
+      const selectedVehicle = vehiclesForImageMapping[vehicleIndex];
+
+      if (!selectedVehicle?.vehicle_id) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `No vehicle_id found at vehicle index ${vehicleIndex}`
+          )
+        );
+      }
+
+      const vehicleDoc = await vehicleCollection.findById(
+        selectedVehicle.vehicle_id
+      );
+
+      if (!vehicleDoc) {
+        return res.status(404).json(
+          generateErrorResponse(
+            "Vehicle Not Found",
+            `Vehicle with ID ${selectedVehicle.vehicle_id} does not exist`
+          )
+        );
+      }
+
+      const imageUrl = await uploadToSupabase(
+        file.path,
+        file.originalname,
+        "vehicles"
+      );
+
+      if (
+        typeof imageUrl !== "string" ||
+        !imageUrl.startsWith("https://")
+      ) {
+        throw new Error(
+          `Supabase upload failed for vehicle index ${vehicleIndex}`
+        );
+      }
+
+      // img must contain objects, not raw URL strings.
+      vehicleDoc.img = vehicleDoc.img || [];
+      vehicleDoc.img.push({
+        filename: file.originalname,
+        path: imageUrl,
+        mimetype: file.mimetype,
+      });
+
+      await vehicleDoc.save();
+
+      console.log("Pilgrimage vehicle image updated:", {
+        vehicleId: vehicleDoc._id,
+        vehicleIndex,
+        imageUrl,
+      });
+    }
+  }
+
+
+    
+  // -----------------------------
+  // Validate hotel selections
+  // -----------------------------
+  if (Array.isArray(parsedItinerary)) {
+    for (const item of parsedItinerary) {
+      if (!item.stay) continue;
+
+      const resolvedHotelId =
+        item.hotel_id ||
+        (item.hotels?.length > 0 ? item.hotels[0].hotel_id : null);
+
+      if (!resolvedHotelId) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `Hotel is required for day ${item.dayNo}`
+          )
+        );
+      }
+
+      const hotel = await hotelCollection.findById(resolvedHotelId);
+
+      if (!hotel) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `Hotel not found for day ${item.dayNo}`
+          )
+        );
+      }
+
+      if (!hotel.active) {
+        return res.status(400).json(
+          generateErrorResponse(
+            "Validation Error",
+            `Hotel "${hotel.hotelName}" is inactive`
+          )
+        );
+      }
+
+      item.hotel_id = resolvedHotelId;
+    }
+  }
+
 
     // Handle file uploads
     const convertPath = (path) =>
@@ -248,29 +358,90 @@ const updatePilgrimage = async (req, res) => {
     if (include !== undefined) existingPackage.include = include;
     if (exclude !== undefined) existingPackage.exclude = exclude;
 
-    if (priceMarkup !== undefined) existingPackage.priceMarkup = parseFloat(priceMarkup);
-    if (inflatedPercentage !== undefined) existingPackage.inflatedPercentage = parseFloat(inflatedPercentage);
+    
+  if (priceMarkup !== undefined) {
+    const parsedMarkup = Number(priceMarkup);
+
+    if (!Number.isFinite(parsedMarkup) || parsedMarkup < 0) {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          "priceMarkup must be a valid non-negative number"
+        )
+      );
+    }
+
+    existingPackage.priceMarkup = parsedMarkup;
+  }
+
+  if (inflatedPercentage !== undefined) {
+    const parsedInflation = Number(inflatedPercentage);
+
+    if (!Number.isFinite(parsedInflation) || parsedInflation < 0) {
+      return res.status(400).json(
+        generateErrorResponse(
+          "Validation Error",
+          "inflatedPercentage must be a valid non-negative number"
+        )
+      );
+    }
+
+    existingPackage.inflatedPercentage = parsedInflation;
+  }
+
+
     if (active !== undefined) existingPackage.active = active === "true" || active === true;
     if (startCity !== undefined) existingPackage.startCity = startCity;
     if (parsedItinerary !== undefined) existingPackage.itinerary = parsedItinerary;
     if (parsedVehicles !== undefined) existingPackage.vehiclePrices = parsedVehicles;
 
-    const pricing =
-      await calculateRecommendedPackagePrice(
+    
+  // -----------------------------
+  // Recalculate recommended pricing
+  // -----------------------------
+  const pricingVehicles =
+    existingPackage.vehiclePrices || [];
 
-        existingPackage.itinerary,
+  const normalizedMarkup = Number(existingPackage.priceMarkup ?? 0);
+  const normalizedInflation = Number(
+    existingPackage.inflatedPercentage ?? 0
+  );
 
-        existingPackage.vehiclePrices,
-        existingPackage.priceMarkup,
+  if (
+    !Number.isFinite(normalizedMarkup) ||
+    normalizedMarkup < 0 ||
+    !Number.isFinite(normalizedInflation) ||
+    normalizedInflation < 0
+  ) {
+    return res.status(400).json(
+      generateErrorResponse(
+        "Validation Error",
+        "Price markup and inflation percentage must be valid non-negative numbers"
+      )
+    );
+  }
 
-        existingPackage.inflatedPercentage
-      );
+  const pricing = await calculateRecommendedPackagePrice(
+    existingPackage.itinerary || [],
+    pricingVehicles,
+    normalizedMarkup,
+    normalizedInflation
+  );
 
-    existingPackage.recommendedPricing =
-      pricing;
+  if (
+    !pricing ||
+    !Number.isFinite(Number(pricing.finalCost))
+  ) {
+    throw new Error(
+      "Recommended pricing calculation returned an invalid finalCost"
+    );
+  }
 
-    existingPackage.basePrice =
-      pricing.finalCost;
+  existingPackage.recommendedPricing = pricing;
+  existingPackage.basePrice = Number(pricing.finalCost);
+  existingPackage.priceMarkup = normalizedMarkup;
+  existingPackage.inflatedPercentage = normalizedInflation;
+
 
     // Save updated package
     const updatedPackage = await existingPackage.save();
